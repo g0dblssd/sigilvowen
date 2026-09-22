@@ -9,8 +9,10 @@ public partial class Enemy : CharacterBody3D
     private float _stunTimer;
     private float _burnTimer;
     private float _burnDps;
+    private float _burnTickTimer;
     private float _poisonTimer;
     private float _poisonDps;
+    private float _poisonTickTimer;
     private float _chillTimer;
     private float _chillSlow;
     private MeshInstance3D? _mesh;
@@ -29,6 +31,7 @@ public partial class Enemy : CharacterBody3D
     private const float MaxAttackHeightDifference = 2f;
     private const float AttackDamage = 12f;
     private const float AttackAnimationDuration = 0.28f;
+    private const float StatusTickInterval = 0.25f;
 
     public bool IsTrainingDummy => _isTrainingDummy;
 
@@ -156,12 +159,22 @@ public partial class Enemy : CharacterBody3D
         if (_burnTimer > 0f)
         {
             _burnTimer -= step;
-            TakeRawDamage(_burnDps * step, true);
+            _burnTickTimer -= step;
+            if (_burnTickTimer <= 0f)
+            {
+                _burnTickTimer += StatusTickInterval;
+                TakeRawDamage(_burnDps * StatusTickInterval, true);
+            }
         }
         if (_poisonTimer > 0f)
         {
             _poisonTimer -= step;
-            TakeRawDamage(_poisonDps * step, false, new Color(0.25f, 1f, 0.3f));
+            _poisonTickTimer -= step;
+            if (_poisonTickTimer <= 0f)
+            {
+                _poisonTickTimer += StatusTickInterval;
+                TakeRawDamage(_poisonDps * StatusTickInterval, false, new Color(0.25f, 1f, 0.3f));
+            }
         }
         if (_chillTimer > 0f)
         {
@@ -259,12 +272,20 @@ public partial class Enemy : CharacterBody3D
 
     public void ApplyBurn(float dps, float duration)
     {
+        if (_burnTimer <= 0f)
+        {
+            _burnTickTimer = StatusTickInterval;
+        }
         _burnDps = Mathf.Max(_burnDps, dps);
         _burnTimer = Mathf.Max(_burnTimer, duration);
     }
 
     public void ApplyPoison(float dps, float duration)
     {
+        if (_poisonTimer <= 0f)
+        {
+            _poisonTickTimer = StatusTickInterval;
+        }
         _poisonDps = Mathf.Max(_poisonDps, dps);
         _poisonTimer = Mathf.Max(_poisonTimer, duration);
     }
