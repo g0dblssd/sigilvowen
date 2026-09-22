@@ -189,6 +189,12 @@ public partial class Enemy : CharacterBody3D
                 _burnTickTimer += StatusTickInterval;
                 TakeRawDamage(_burnDps * StatusTickInterval, true);
             }
+            if (_burnTimer <= 0f)
+            {
+                _burnTimer = 0f;
+                _burnDps = 0f;
+                _burnTickTimer = 0f;
+            }
         }
         if (_poisonTimer > 0f)
         {
@@ -199,10 +205,21 @@ public partial class Enemy : CharacterBody3D
                 _poisonTickTimer += StatusTickInterval;
                 TakeRawDamage(_poisonDps * StatusTickInterval, false, new Color(0.25f, 1f, 0.3f));
             }
+            if (_poisonTimer <= 0f)
+            {
+                _poisonTimer = 0f;
+                _poisonDps = 0f;
+                _poisonTickTimer = 0f;
+            }
         }
         if (_chillTimer > 0f)
         {
             _chillTimer -= step;
+            if (_chillTimer <= 0f)
+            {
+                _chillTimer = 0f;
+                _chillSlow = 0f;
+            }
         }
         _hitFlash = Mathf.Max(0f, _hitFlash - step);
     }
