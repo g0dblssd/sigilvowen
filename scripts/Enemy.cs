@@ -21,11 +21,14 @@ public partial class Enemy : CharacterBody3D
     private float _attackCooldown;
     private float _rangedCooldown;
     private float _hitFlash;
+    private float _animationTime;
+    private float _attackAnimationLeft;
     private const float EncounterSpeed = 1.7f;
     private const float Gravity = 20f;
     private const float AttackRange = 1.9f;
     private const float MaxAttackHeightDifference = 2f;
     private const float AttackDamage = 12f;
+    private const float AttackAnimationDuration = 0.28f;
 
     public bool IsTrainingDummy => _isTrainingDummy;
 
@@ -49,16 +52,25 @@ public partial class Enemy : CharacterBody3D
 
         _mat = new StandardMaterial3D
         {
-            AlbedoColor = _isTrainingDummy ? new Color(0.62f, 0.48f, 0.25f) : new Color(0.8f, 0.25f, 0.25f),
-            EmissionEnabled = _isTrainingDummy,
-            Emission = new Color(0.2f, 0.12f, 0.03f),
-            EmissionEnergyMultiplier = 0.8f,
+            AlbedoColor = _isTrainingDummy ? new Color(0.62f, 0.48f, 0.25f) : Colors.White,
+            AlbedoTexture = _isTrainingDummy ? null : GD.Load<Texture2D>("res://assets/textures/raider_armor.png"),
+            Roughness = 0.78f,
+            Metallic = _isTrainingDummy ? 0f : 0.24f,
+            EmissionEnabled = true,
+            Emission = _isTrainingDummy ? new Color(0.2f, 0.12f, 0.03f) : new Color(0.32f, 0.018f, 0.008f),
+            EmissionEnergyMultiplier = 0.7f,
+            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
         };
         var box = new BoxMesh { Size = new Vector3(1f, 2f, 1f) };
         _mesh = new MeshInstance3D { Mesh = box };
         _mesh.SetSurfaceOverrideMaterial(0, _mat);
         _mesh.Position = new Vector3(0, 1f, 0);
         AddChild(_mesh);
+
+        if (!_isTrainingDummy)
+        {
+            AddRaiderDetails();
+        }
 
         var col = new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(1f, 2f, 1f) } };
         col.Position = new Vector3(0, 1f, 0);
@@ -81,6 +93,7 @@ public partial class Enemy : CharacterBody3D
     public override void _PhysicsProcess(double delta)
     {
         float step = (float)delta;
+        _animationTime += step;
         Vector3 velocity = Velocity;
         velocity.X = 0f;
         velocity.Z = 0f;
@@ -116,7 +129,9 @@ public partial class Enemy : CharacterBody3D
                 if (_attackCooldown <= 0f)
                 {
                     _attackCooldown = 1.05f;
+                    _attackAnimationLeft = AttackAnimationDuration;
                     player.TakeDamage(AttackDamage, "RAIDER");
+                    SpawnMeleeImpact(player.GlobalPosition);
                     FlashHit(new Color(1f, 0.85f, 0.25f));
                 }
             }
@@ -132,6 +147,7 @@ public partial class Enemy : CharacterBody3D
         }
         Velocity = velocity;
         MoveAndSlide();
+        AnimateBody(step, new Vector2(velocity.X, velocity.Z).Length() > 0.05f);
 
         if (_stunTimer > 0f)
         {
@@ -152,6 +168,83 @@ public partial class Enemy : CharacterBody3D
             _chillTimer -= step;
         }
         _hitFlash = Mathf.Max(0f, _hitFlash - step);
+    }
+
+    private void AddRaiderDetails()
+    {
+        if (_mesh == null)
+        {
+            return;
+        }
+
+        var emberMaterial = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(1f, 0.18f, 0.03f),
+            EmissionEnabled = true,
+            Emission = new Color(1f, 0.06f, 0.01f),
+            EmissionEnergyMultiplier = 4f,
+        };
+        var visor = new MeshInstance3D
+        {
+            Mesh = new BoxMesh { Size = new Vector3(0.52f, 0.09f, 0.05f) },
+            Position = new Vector3(0f, 0.28f, 0.52f),
+        };
+        visor.SetSurfaceOverrideMaterial(0, emberMaterial);
+        _mesh.AddChild(visor);
+
+        var bladeMaterial = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.16f, 0.17f, 0.2f),
+            Metallic = 0.85f,
+            Roughness = 0.28f,
+        };
+        var blade = new MeshInstance3D
+        {
+            Mesh = new BoxMesh { Size = new Vector3(0.12f, 1.05f, 0.18f) },
+            Position = new Vector3(0.72f, -0.05f, -0.12f),
+            Rotation = new Vector3(0f, 0f, -0.35f),
+        };
+        blade.SetSurfaceOverrideMaterial(0, bladeMaterial);
+        _mesh.AddChild(blade);
+    }
+
+    private void AnimateBody(float step, bool moving)
+    {
+        if (_mesh == null || _mat == null)
+        {
+            return;
+        }
+
+        float walkWeight = moving && !IsStunned() ? 1f : 0f;
+        float stride = Mathf.Sin(_animationTime * 9f);
+        float bob = Mathf.Abs(stride) * 0.075f * walkWeight;
+        float sway = stride * 0.055f * walkWeight;
+        float attackPunch = 0f;
+        if (_attackAnimationLeft > 0f)
+        {
+            _attackAnimationLeft = Mathf.Max(0f, _attackAnimationLeft - step);
+            float progress = 1f - _attackAnimationLeft / AttackAnimationDuration;
+            attackPunch = Mathf.Sin(progress * Mathf.Pi);
+        }
+
+        _mesh.Position = new Vector3(0f, 1f + bob, attackPunch * 0.22f);
+        _mesh.Rotation = new Vector3(attackPunch * -0.18f, 0f, sway);
+        _mesh.Scale = new Vector3(1f + attackPunch * 0.12f, 1f - attackPunch * 0.08f, 1f + attackPunch * 0.18f);
+        if (_hitFlash <= 0f)
+        {
+            _mat.EmissionEnergyMultiplier = _isTrainingDummy
+                ? 0.7f
+                : 0.62f + Mathf.Sin(_animationTime * 3.5f) * 0.14f;
+        }
+    }
+
+    private void SpawnMeleeImpact(Vector3 position)
+    {
+        var scene = GetTree().CurrentScene;
+        if (scene != null)
+        {
+            SkillVfx.SpawnMeleeHit(scene, position + new Vector3(0f, 0.75f, 0f));
+        }
     }
 
     public bool IsStunned()
@@ -272,7 +365,7 @@ public partial class Enemy : CharacterBody3D
             return;
         }
         _mat.AlbedoColor = color;
-        var normal = _isTrainingDummy ? new Color(0.62f, 0.48f, 0.25f) : new Color(0.8f, 0.25f, 0.25f);
+        var normal = _isTrainingDummy ? new Color(0.62f, 0.48f, 0.25f) : Colors.White;
         var tween = CreateTween();
         tween.TweenProperty(_mat, "albedo_color", normal, 0.12f);
         _hitFlash = 0.12f;

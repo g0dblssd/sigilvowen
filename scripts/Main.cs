@@ -32,7 +32,15 @@ public partial class Main : Node3D
         groundBody.CollisionMask = 0;
         AddChild(groundBody);
 
-        var groundMat = new StandardMaterial3D { AlbedoColor = new Color(0.16f, 0.18f, 0.23f), Metallic = 0.15f, Roughness = 0.85f };
+        var groundMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.72f, 0.76f, 0.82f),
+            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/arena_rune_stone.png"),
+            Metallic = 0.08f,
+            Roughness = 0.9f,
+            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
+            Uv1Scale = new Vector3(8f, 8f, 1f),
+        };
         var groundMesh = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(60f, 1f, 60f) } };
         groundMesh.SetSurfaceOverrideMaterial(0, groundMat);
         groundMesh.Position = new Vector3(0, -0.5f, 0);

@@ -86,6 +86,36 @@ public static class SkillVfx
         }
     }
 
+    public static void SpawnMeleeHit(Node scene, Vector3 position)
+    {
+        var node = new Node3D();
+        scene.AddChild(node);
+        node.GlobalPosition = position;
+        var material = MakeMaterial(DamageElement.Physical);
+
+        for (int i = 0; i < 5; i++)
+        {
+            float angle = Mathf.Tau * i / 5f;
+            var shard = new MeshInstance3D
+            {
+                Mesh = new BoxMesh { Size = new Vector3(0.09f, 0.09f, 0.65f) },
+                Position = new Vector3(Mathf.Cos(angle) * 0.22f, 0f, Mathf.Sin(angle) * 0.22f),
+                Rotation = new Vector3(0f, -angle, 0f),
+            };
+            shard.SetSurfaceOverrideMaterial(0, material);
+            node.AddChild(shard);
+        }
+
+        node.Scale = Vector3.One * 0.2f;
+        var tween = node.CreateTween();
+        tween.SetParallel(true);
+        tween.TweenProperty(node, "scale", Vector3.One * 1.25f, 0.16f);
+        tween.TweenProperty(node, "rotation:y", Mathf.Pi * 0.35f, 0.16f);
+        tween.SetParallel(false);
+        tween.TweenProperty(node, "scale", Vector3.One * 0.05f, 0.12f);
+        tween.TweenCallback(Callable.From(node.QueueFree));
+    }
+
     private static StandardMaterial3D MakeMaterial(DamageElement element)
     {
         Color color = element switch
