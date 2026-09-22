@@ -1,0 +1,10 @@
+.godot/
+.mono/
+bin/
+obj/
+*.tmp
+*.log
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

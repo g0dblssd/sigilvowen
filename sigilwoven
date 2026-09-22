@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve the project from the launcher location, so `sigilwoven` works from
+# any directory and does not depend on the current working directory.
+# readlink -f follows the ~/.local/bin/sigilwoven symlink installed by the
+# helper script, so the project is found correctly from any working directory.
+SCRIPT_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd -P)"
+
+if command -v godot-mono >/dev/null 2>&1; then
+    GODOT_BIN="$(command -v godot-mono)"
+elif command -v godot >/dev/null 2>&1; then
+    GODOT_BIN="$(command -v godot)"
+else
+    echo "sigilwoven: Godot Mono was not found (expected godot-mono or godot)." >&2
+    exit 127
+fi
+
+exec "$GODOT_BIN" --path "$SCRIPT_DIR" "$@"
