@@ -18,6 +18,7 @@ public partial class SkillCaster : Node
 
     public List<Slot> Slots = new();
     public int SelectedSlot;
+    private readonly Dictionary<string, int> _linkCharges = new();
     private float[] _cooldownLeft = System.Array.Empty<float>();
     private Node3D? _ownerPlayer;
 
@@ -28,6 +29,8 @@ public partial class SkillCaster : Node
 
     public override void _Ready()
     {
+        ResetLinkCharges();
+
         var meteor = SkillCatalog.ById("meteor");
         var elemental = SkillCatalog.ById("lightning_elemental");
         var chain = SkillCatalog.ById("chain_lightning");
@@ -58,11 +61,39 @@ public partial class SkillCaster : Node
         {
             if (slot.Links.Count > 0)
             {
-                slot.Skill.TrySpendLinkCharges(slot.Links.Count);
+                TrySpendLinkCharges(slot.Skill, slot.Links.Count);
             }
         }
         _cooldownLeft = new float[Slots.Count];
         SelectedSlot = 0;
+    }
+
+    public int GetLinkCharges(SkillData skill)
+    {
+        return _linkCharges.TryGetValue(skill.Id, out int charges)
+            ? charges
+            : SkillData.MaxLinkCharges;
+    }
+
+    public bool TrySpendLinkCharges(SkillData skill, int amount)
+    {
+        int available = GetLinkCharges(skill);
+        if (amount < 0 || available < amount)
+        {
+            return false;
+        }
+
+        _linkCharges[skill.Id] = available - amount;
+        return true;
+    }
+
+    private void ResetLinkCharges()
+    {
+        _linkCharges.Clear();
+        foreach (var skill in SkillCatalog.All)
+        {
+            _linkCharges[skill.Id] = SkillData.MaxLinkCharges;
+        }
     }
 
     public override void _Process(double delta)
@@ -85,7 +116,7 @@ public partial class SkillCaster : Node
         var s = Slots[SelectedSlot];
         float cooldown = _cooldownLeft.Length > SelectedSlot ? Mathf.Max(0f, _cooldownLeft[SelectedSlot]) : 0f;
         string cooldownText = cooldown > 0f ? $" CD {cooldown:0.0}s" : " READY";
-        return $"[{SelectedSlot + 1}] {s.Skill.DisplayName} | {s.Skill.ManaCost:0} mana | {s.Links.Count} links | mix {s.Skill.LinkCharges}/2 |{cooldownText}";
+        return $"[{SelectedSlot + 1}] {s.Skill.DisplayName} | {s.Skill.ManaCost:0} mana | {s.Links.Count} links | mix {GetLinkCharges(s.Skill)}/{SkillData.MaxLinkCharges} |{cooldownText}";
     }
 
     public void SelectAndCast(int index, Vector3 target)

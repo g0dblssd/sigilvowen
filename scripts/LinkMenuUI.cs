@@ -151,9 +151,9 @@ public partial class LinkMenuUI : CanvasLayer
                 }
             }
         }
-        if (!skill.TrySpendLinkCharges(requiredCharges))
+        if (!_caster.TrySpendLinkCharges(skill, requiredCharges))
         {
-            _status.Text = $"NO MIX CHARGES: {skill.DisplayName} has {skill.LinkCharges}/2; needs {requiredCharges}.";
+            _status.Text = $"NO MIX CHARGES: {skill.DisplayName} has {_caster.GetLinkCharges(skill)}/{SkillData.MaxLinkCharges}; needs {requiredCharges}.";
             return;
         }
         while (_caster.Slots.Count <= slotIndex)
@@ -162,8 +162,9 @@ public partial class LinkMenuUI : CanvasLayer
         }
         _caster.Slots[slotIndex] = new SkillCaster.Slot(skill, links);
         _caster.SelectedSlot = slotIndex;
-        _status.Text = $"BOUND: Slot {slotIndex + 1} = {skill.DisplayName} + {links.Count} links | charges {skill.LinkCharges}/2";
-        GD.Print($"[Links] Slot {slotIndex + 1} set to {skill.Id} + {links.Count} links, charges={skill.LinkCharges}");
+        int chargesLeft = _caster.GetLinkCharges(skill);
+        _status.Text = $"BOUND: Slot {slotIndex + 1} = {skill.DisplayName} + {links.Count} links | charges {chargesLeft}/{SkillData.MaxLinkCharges}";
+        GD.Print($"[Links] Slot {slotIndex + 1} set to {skill.Id} + {links.Count} links, charges={chargesLeft}");
     }
 
     private void OnSlotSelected(long selected)
@@ -189,7 +190,8 @@ public partial class LinkMenuUI : CanvasLayer
         if (_status != null && selected >= 0 && selected < SkillCatalog.All.Count)
         {
             var skill = SkillCatalog.All[(int)selected];
-            _status.Text = $"Preparing {skill.DisplayName}. Mix charges: {skill.LinkCharges}/2; every new link costs 1.";
+            int chargesLeft = _caster?.GetLinkCharges(skill) ?? SkillData.MaxLinkCharges;
+            _status.Text = $"Preparing {skill.DisplayName}. Mix charges: {chargesLeft}/{SkillData.MaxLinkCharges}; every new link costs 1.";
         }
     }
 }
