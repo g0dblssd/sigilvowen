@@ -2,6 +2,13 @@ using Godot;
 
 namespace Sigilwoven;
 
+public enum EnemyArchetype
+{
+    Raider,
+    Brute,
+    Hexer,
+}
+
 public partial class Enemy : CharacterBody3D
 {
     public float MaxHp = 60f;
@@ -25,20 +32,28 @@ public partial class Enemy : CharacterBody3D
     private float _hitFlash;
     private float _animationTime;
     private float _attackAnimationLeft;
-    private const float EncounterSpeed = 1.7f;
+    private EnemyArchetype _archetype;
+    private Color _normalColor = Colors.White;
+    private float _bodyBaseY = 1f;
     private const float Gravity = 20f;
     private const float AttackRange = 1.9f;
     private const float MaxAttackHeightDifference = 2f;
-    private const float AttackDamage = 12f;
     private const float AttackAnimationDuration = 0.28f;
     private const float StatusTickInterval = 0.25f;
 
     public bool IsTrainingDummy => _isTrainingDummy;
 
-    public void Configure(float maxHp, bool isTrainingDummy = false)
+    public void Configure(float maxHp, bool isTrainingDummy = false, EnemyArchetype archetype = EnemyArchetype.Raider)
     {
-        MaxHp = maxHp;
         _isTrainingDummy = isTrainingDummy;
+        _archetype = archetype;
+        float healthMultiplier = archetype switch
+        {
+            EnemyArchetype.Brute => 1.6f,
+            EnemyArchetype.Hexer => 0.82f,
+            _ => 1f,
+        };
+        MaxHp = isTrainingDummy ? maxHp : maxHp * healthMultiplier;
     }
 
     public void JoinAmbush(Node3D target)
@@ -53,9 +68,17 @@ public partial class Enemy : CharacterBody3D
         AddToGroup("enemies");
         _hp = MaxHp;
 
+        _normalColor = _isTrainingDummy
+            ? new Color(0.62f, 0.48f, 0.25f)
+            : _archetype switch
+            {
+                EnemyArchetype.Brute => new Color(0.68f, 0.42f, 0.36f),
+                EnemyArchetype.Hexer => new Color(0.48f, 0.58f, 1f),
+                _ => Colors.White,
+            };
         _mat = new StandardMaterial3D
         {
-            AlbedoColor = _isTrainingDummy ? new Color(0.62f, 0.48f, 0.25f) : Colors.White,
+            AlbedoColor = _normalColor,
             AlbedoTexture = _isTrainingDummy ? null : GD.Load<Texture2D>("res://assets/textures/raider_armor.png"),
             Roughness = 0.78f,
             Metallic = _isTrainingDummy ? 0f : 0.24f,
@@ -64,10 +87,17 @@ public partial class Enemy : CharacterBody3D
             EmissionEnergyMultiplier = 0.7f,
             TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
         };
-        var box = new BoxMesh { Size = new Vector3(1f, 2f, 1f) };
+        Vector3 bodySize = _archetype switch
+        {
+            EnemyArchetype.Brute => new Vector3(1.28f, 2.35f, 1.18f),
+            EnemyArchetype.Hexer => new Vector3(0.86f, 1.82f, 0.86f),
+            _ => new Vector3(1f, 2f, 1f),
+        };
+        _bodyBaseY = bodySize.Y * 0.5f;
+        var box = new BoxMesh { Size = bodySize };
         _mesh = new MeshInstance3D { Mesh = box };
         _mesh.SetSurfaceOverrideMaterial(0, _mat);
-        _mesh.Position = new Vector3(0, 1f, 0);
+        _mesh.Position = new Vector3(0, _bodyBaseY, 0);
         AddChild(_mesh);
 
         if (!_isTrainingDummy)
@@ -75,8 +105,8 @@ public partial class Enemy : CharacterBody3D
             AddRaiderDetails();
         }
 
-        var col = new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(1f, 2f, 1f) } };
-        col.Position = new Vector3(0, 1f, 0);
+        var col = new CollisionShape3D { Shape = new BoxShape3D { Size = bodySize } };
+        col.Position = new Vector3(0, _bodyBaseY, 0);
         AddChild(col);
 
         if (_isTrainingDummy)
@@ -87,7 +117,7 @@ public partial class Enemy : CharacterBody3D
         }
         else
         {
-            _healthLabel = new Label3D { FontSize = 34, OutlineSize = 6, Modulate = new Color(1f, 0.75f, 0.75f), Position = new Vector3(0f, 2.35f, 0f) };
+            _healthLabel = new Label3D { FontSize = 34, OutlineSize = 6, Modulate = _archetype == EnemyArchetype.Hexer ? new Color(0.65f, 0.75f, 1f) : new Color(1f, 0.75f, 0.75f), Position = new Vector3(0f, bodySize.Y + 0.35f, 0f) };
             AddChild(_healthLabel);
             UpdateHealthLabel();
         }
@@ -106,36 +136,30 @@ public partial class Enemy : CharacterBody3D
             Vector3 direction = _encounterTarget.GlobalPosition - GlobalPosition;
             direction.Y = 0f;
             float distance = direction.Length();
-            if (!IsStunned() && distance > AttackRange)
+            if (!IsStunned())
             {
                 float moveMultiplier = _chillTimer > 0f ? 1f - _chillSlow : 1f;
-                Vector3 movement = direction.Normalized() * EncounterSpeed * moveMultiplier;
+                Vector3 moveDirection = Vector3.Zero;
+                if (_archetype == EnemyArchetype.Hexer && distance > AttackRange && distance < 4f)
+                {
+                    moveDirection = -direction.Normalized();
+                }
+                else if (distance > (_archetype == EnemyArchetype.Hexer ? 7f : AttackRange))
+                {
+                    moveDirection = direction.Normalized();
+                }
+                Vector3 movement = moveDirection * GetMoveSpeed() * moveMultiplier;
                 velocity.X = movement.X;
                 velocity.Z = movement.Z;
-                LookAt(GlobalPosition + direction, Vector3.Up, true);
-                if (distance > 4f && distance < 10f)
+                if (direction.LengthSquared() > 0.01f)
                 {
-                    _rangedCooldown -= step;
-                    if (_rangedCooldown <= 0f && _encounterTarget is PlayerController rangedTarget)
-                    {
-                        _rangedCooldown = 2.4f + GD.Randf() * 0.8f;
-                        FireShadowBolt(rangedTarget);
-                    }
+                    LookAt(GlobalPosition + direction, Vector3.Up, true);
                 }
-            }
-            else if (!IsStunned()
-                && distance <= AttackRange
-                && Mathf.Abs(_encounterTarget.GlobalPosition.Y - GlobalPosition.Y) <= MaxAttackHeightDifference
-                && _encounterTarget is PlayerController player)
-            {
-                _attackCooldown -= (float)delta;
-                if (_attackCooldown <= 0f)
+
+                if (_encounterTarget is PlayerController player)
                 {
-                    _attackCooldown = 1.05f;
-                    _attackAnimationLeft = AttackAnimationDuration;
-                    player.TakeDamage(AttackDamage, "RAIDER");
-                    SpawnMeleeImpact(player.GlobalPosition);
-                    FlashHit(new Color(1f, 0.85f, 0.25f));
+                    UpdateRangedAttack(player, distance, step);
+                    UpdateMeleeAttack(player, distance, step);
                 }
             }
         }
@@ -183,6 +207,57 @@ public partial class Enemy : CharacterBody3D
         _hitFlash = Mathf.Max(0f, _hitFlash - step);
     }
 
+    private float GetMoveSpeed()
+    {
+        return _archetype switch
+        {
+            EnemyArchetype.Brute => 1.18f,
+            EnemyArchetype.Hexer => 1.52f,
+            _ => 1.7f,
+        };
+    }
+
+    private void UpdateRangedAttack(PlayerController target, float distance, float step)
+    {
+        if (_archetype == EnemyArchetype.Brute || distance < 3f || distance > 11f)
+        {
+            return;
+        }
+        _rangedCooldown -= step;
+        if (_rangedCooldown > 0f)
+        {
+            return;
+        }
+        _rangedCooldown = _archetype == EnemyArchetype.Hexer
+            ? 1.45f + GD.Randf() * 0.35f
+            : 2.4f + GD.Randf() * 0.8f;
+        FireShadowBolt(target);
+    }
+
+    private void UpdateMeleeAttack(PlayerController target, float distance, float step)
+    {
+        if (distance > AttackRange || Mathf.Abs(target.GlobalPosition.Y - GlobalPosition.Y) > MaxAttackHeightDifference)
+        {
+            return;
+        }
+        _attackCooldown -= step;
+        if (_attackCooldown > 0f)
+        {
+            return;
+        }
+        _attackCooldown = _archetype == EnemyArchetype.Brute ? 1.35f : 1.05f;
+        _attackAnimationLeft = AttackAnimationDuration;
+        float damage = _archetype switch
+        {
+            EnemyArchetype.Brute => 22f,
+            EnemyArchetype.Hexer => 7f,
+            _ => 12f,
+        };
+        target.TakeDamage(damage, _archetype.ToString().ToUpperInvariant());
+        SpawnMeleeImpact(target.GlobalPosition);
+        FlashHit(new Color(1f, 0.85f, 0.25f));
+    }
+
     private void AddRaiderDetails()
     {
         if (_mesh == null)
@@ -190,11 +265,14 @@ public partial class Enemy : CharacterBody3D
             return;
         }
 
+        Color glow = _archetype == EnemyArchetype.Hexer
+            ? new Color(0.2f, 0.55f, 1f)
+            : new Color(1f, 0.18f, 0.03f);
         var emberMaterial = new StandardMaterial3D
         {
-            AlbedoColor = new Color(1f, 0.18f, 0.03f),
+            AlbedoColor = glow,
             EmissionEnabled = true,
-            Emission = new Color(1f, 0.06f, 0.01f),
+            Emission = glow,
             EmissionEnergyMultiplier = 4f,
         };
         var visor = new MeshInstance3D
@@ -213,12 +291,23 @@ public partial class Enemy : CharacterBody3D
         };
         var blade = new MeshInstance3D
         {
-            Mesh = new BoxMesh { Size = new Vector3(0.12f, 1.05f, 0.18f) },
+            Mesh = new BoxMesh { Size = _archetype == EnemyArchetype.Brute ? new Vector3(0.2f, 1.45f, 0.28f) : new Vector3(0.12f, 1.05f, 0.18f) },
             Position = new Vector3(0.72f, -0.05f, -0.12f),
             Rotation = new Vector3(0f, 0f, -0.35f),
         };
         blade.SetSurfaceOverrideMaterial(0, bladeMaterial);
         _mesh.AddChild(blade);
+
+        if (_archetype == EnemyArchetype.Hexer)
+        {
+            var halo = new MeshInstance3D
+            {
+                Mesh = new TorusMesh { InnerRadius = 0.5f, OuterRadius = 0.58f },
+                Position = new Vector3(0f, 0.72f, 0f),
+            };
+            halo.SetSurfaceOverrideMaterial(0, emberMaterial);
+            _mesh.AddChild(halo);
+        }
     }
 
     private void AnimateBody(float step, bool moving)
@@ -240,7 +329,7 @@ public partial class Enemy : CharacterBody3D
             attackPunch = Mathf.Sin(progress * Mathf.Pi);
         }
 
-        _mesh.Position = new Vector3(0f, 1f + bob, attackPunch * 0.22f);
+        _mesh.Position = new Vector3(0f, _bodyBaseY + bob, attackPunch * 0.22f);
         _mesh.Rotation = new Vector3(attackPunch * -0.18f, 0f, sway);
         _mesh.Scale = new Vector3(1f + attackPunch * 0.12f, 1f - attackPunch * 0.08f, 1f + attackPunch * 0.18f);
         if (_hitFlash <= 0f)
@@ -364,7 +453,7 @@ public partial class Enemy : CharacterBody3D
         label.FontSize = 48;
         label.Modulate = color ?? (isBurn ? new Color(1f, 0.5f, 0.1f) : Colors.White);
         label.OutlineSize = 8;
-        label.Position = new Vector3(GD.Randf() * 0.6f - 0.3f, 2.4f, 0);
+        label.Position = new Vector3(GD.Randf() * 0.6f - 0.3f, _bodyBaseY * 2f + 0.4f, 0);
         AddChild(label);
         var tween = CreateTween();
         tween.TweenProperty(label, "position:y", 3.2f, 0.7);
@@ -375,7 +464,7 @@ public partial class Enemy : CharacterBody3D
     {
         if (_healthLabel != null)
         {
-            _healthLabel.Text = $"{Mathf.Max(0, Mathf.CeilToInt(_hp))} / {Mathf.CeilToInt(MaxHp)}";
+            _healthLabel.Text = $"{_archetype.ToString().ToUpperInvariant()}  {Mathf.Max(0, Mathf.CeilToInt(_hp))} / {Mathf.CeilToInt(MaxHp)}";
         }
     }
 
@@ -386,9 +475,8 @@ public partial class Enemy : CharacterBody3D
             return;
         }
         _mat.AlbedoColor = color;
-        var normal = _isTrainingDummy ? new Color(0.62f, 0.48f, 0.25f) : Colors.White;
         var tween = CreateTween();
-        tween.TweenProperty(_mat, "albedo_color", normal, 0.12f);
+        tween.TweenProperty(_mat, "albedo_color", _normalColor, 0.12f);
         _hitFlash = 0.12f;
     }
 
@@ -412,7 +500,7 @@ public partial class Enemy : CharacterBody3D
             return;
         }
         var bolt = new RaiderBolt();
-        bolt.Configure(target, 9f);
+        bolt.Configure(target, _archetype == EnemyArchetype.Hexer ? 14f : 9f);
         scene.AddChild(bolt);
         bolt.GlobalPosition = GlobalPosition + new Vector3(0f, 1.1f, 0f);
         FlashHit(new Color(0.8f, 0.2f, 1f));

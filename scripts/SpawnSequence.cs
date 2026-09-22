@@ -62,12 +62,13 @@ public partial class SpawnSequence : Node
             new Vector3(7f, 0f, 1f), new Vector3(-6f, 0f, 3f),
             new Vector3(2f, 0f, -7f), new Vector3(-4f, 0f, -6f),
         };
-        foreach (Vector3 offset in offsets)
+        for (int i = 0; i < offsets.Length; i++)
         {
             var enemy = new Enemy();
-            enemy.Configure(60f);
+            EnemyArchetype archetype = i == offsets.Length - 1 ? EnemyArchetype.Hexer : EnemyArchetype.Raider;
+            enemy.Configure(60f, false, archetype);
             _world!.AddChild(enemy);
-            enemy.GlobalPosition = _player!.GlobalPosition + offset;
+            enemy.GlobalPosition = _player!.GlobalPosition + offsets[i];
             enemy.JoinAmbush(_player);
         }
         GD.Print("[Spawn] Ritual complete. Opening ambush spawned: 4 enemies.");
@@ -112,12 +113,15 @@ public partial class SpawnSequence : Node
         {
             float angle = Mathf.Tau * i / count + _wave * 0.4f;
             var enemy = new Enemy();
-            enemy.Configure(hp);
+            EnemyArchetype archetype = _wave == 2
+                ? (i == count - 1 ? EnemyArchetype.Hexer : EnemyArchetype.Raider)
+                : (i % 3 == 0 ? EnemyArchetype.Brute : (i % 3 == 1 ? EnemyArchetype.Hexer : EnemyArchetype.Raider));
+            enemy.Configure(hp, false, archetype);
             _world.AddChild(enemy);
             enemy.GlobalPosition = _player.GlobalPosition + new Vector3(Mathf.Cos(angle) * 9f, 0f, Mathf.Sin(angle) * 9f);
             enemy.JoinAmbush(_player);
         }
-        _player.ShowCombatMessage($"WAVE {_wave} — {count} RAIDERS");
-        GD.Print($"[Spawn] Wave {_wave} spawned: {count} enemies, {hp} HP.");
+        _player.ShowCombatMessage($"WAVE {_wave} — MIXED HOSTILES x{count}");
+        GD.Print($"[Spawn] Wave {_wave} spawned: {count} mixed enemies, base {hp} HP.");
     }
 }
