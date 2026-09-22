@@ -31,6 +31,7 @@ public enum PassiveStat
 public partial class PlayerProgression : Node
 {
     public const int MaxLevel = 300;
+    public const int PassiveNodeCount = 1009;
     private const string SavePath = "user://progression.json";
 
     private readonly HashSet<string> _unlockedLinks = new(StringComparer.Ordinal)
@@ -318,7 +319,7 @@ public partial class PlayerProgression : Node
             _allocatedPassiveNodes.Add(0);
             foreach (int nodeId in data.AllocatedPassiveNodes)
             {
-                if (nodeId is > 0 and <= 360)
+                if (nodeId > 0 && nodeId < PassiveNodeCount)
                 {
                     _allocatedPassiveNodes.Add(nodeId);
                 }

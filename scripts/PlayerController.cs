@@ -12,6 +12,7 @@ public partial class PlayerController : CharacterBody3D
     public SkillCaster? Caster { get; private set; }
     public PlayerProgression Progression { get; } = new();
     private LinkMenuUI? _menu;
+    private PassiveTreeUI? _passiveTree;
     private Label? _statusLabel;
     private Label? _healthLabel;
     private Label? _manaLabel;
@@ -41,6 +42,7 @@ public partial class PlayerController : CharacterBody3D
     public float DamageMultiplier => (_damageDebuffLeft > 0f ? 0.7f : 1f) * Progression.DamageMultiplier;
     public bool IsBirthLocked => _stunLeft > 0f;
     public bool IsControlLocked => _ritualLockLeft > 0f;
+    public bool IsGameplayInputLocked => IsControlLocked || (_menu?.IsOpen() ?? false) || (_passiveTree?.IsOpen() ?? false);
 
     public override void _Ready()
     {
@@ -81,9 +83,9 @@ public partial class PlayerController : CharacterBody3D
         AddChild(_menu);
         _menu.Setup(Caster, Progression);
 
-        var passiveTree = new PassiveTreeUI();
-        passiveTree.Setup(Progression);
-        AddChild(passiveTree);
+        _passiveTree = new PassiveTreeUI();
+        _passiveTree.Setup(Progression);
+        AddChild(_passiveTree);
 
         var layer = new CanvasLayer();
         layer.Layer = 5;
@@ -149,7 +151,7 @@ public partial class PlayerController : CharacterBody3D
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (_menu != null && _menu.IsOpen())
+        if (IsGameplayInputLocked)
         {
             return;
         }
@@ -175,7 +177,7 @@ public partial class PlayerController : CharacterBody3D
                 Key.V => 9,
                 _ => -1,
             };
-            if (slot >= 0 && !IsControlLocked)
+            if (slot >= 0 && !IsGameplayInputLocked)
             {
                 Caster.SelectAndCast(slot, GetAimPoint());
                 GetViewport().SetInputAsHandled();
@@ -208,12 +210,17 @@ public partial class PlayerController : CharacterBody3D
     {
         // ARPG movement: a ground click gives the hero a destination.
         Vector3 worldDir = Vector3.Zero;
-        // Holding LMB continuously updates the destination; camera rotation is disabled.
-        if (!IsControlLocked && _menu != null && !_menu.IsOpen() && Input.IsMouseButtonPressed(MouseButton.Left))
+        // Modal windows and interactive UI fully suspend click-to-move.
+        bool inputBlocked = IsGameplayInputLocked || IsPointerOverBlockingUi();
+        if (inputBlocked)
+        {
+            _moveTarget = null;
+        }
+        if (!inputBlocked && Input.IsMouseButtonPressed(MouseButton.Left))
         {
             _moveTarget = GetAimPoint();
         }
-        if (!IsControlLocked && _moveTarget.HasValue)
+        if (!inputBlocked && _moveTarget.HasValue)
         {
             worldDir = _moveTarget.Value - GlobalPosition;
             worldDir.Y = 0f;
@@ -249,6 +256,12 @@ public partial class PlayerController : CharacterBody3D
 
         UpdateFixedCamera();
 
+    }
+
+    private bool IsPointerOverBlockingUi()
+    {
+        Control? hovered = GetViewport().GuiGetHoveredControl();
+        return hovered != null && hovered.MouseFilter != Control.MouseFilterEnum.Ignore;
     }
 
     public void BeginBirth(float stunSeconds, float damageDebuffSeconds)

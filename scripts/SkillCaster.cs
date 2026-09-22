@@ -135,7 +135,7 @@ public partial class SkillCaster : Node
         {
             return;
         }
-        if (_ownerPlayer is PlayerController lockedPlayer && (lockedPlayer.IsControlLocked || lockedPlayer.Health <= 0f))
+        if (_ownerPlayer is PlayerController lockedPlayer && (lockedPlayer.IsGameplayInputLocked || lockedPlayer.Health <= 0f))
         {
             return;
         }
