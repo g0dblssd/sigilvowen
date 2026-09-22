@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using Godot;
 
 namespace Sigilwoven;
@@ -30,6 +31,7 @@ public enum PassiveStat
 public partial class PlayerProgression : Node
 {
     public const int MaxLevel = 300;
+    private const string SavePath = "user://progression.json";
 
     private readonly HashSet<string> _unlockedLinks = new(StringComparer.Ordinal)
     {
@@ -67,6 +69,11 @@ public partial class PlayerProgression : Node
     public event Action? Changed;
     public event Action<string>? LinkUnlocked;
 
+    public override void _Ready()
+    {
+        LoadProgress();
+    }
+
     public void GainExperience(int amount)
     {
         if (amount <= 0)
@@ -100,7 +107,7 @@ public partial class PlayerProgression : Node
             ParagonLevel++;
             ParagonPoints++;
         }
-        Changed?.Invoke();
+        CommitChanges();
     }
 
     public bool IsLinkUnlocked(string linkId)
@@ -114,6 +121,7 @@ public partial class PlayerProgression : Node
         {
             return false;
         }
+        SaveProgress();
         LinkUnlocked?.Invoke(linkId);
         Changed?.Invoke();
         return true;
@@ -144,7 +152,7 @@ public partial class PlayerProgression : Node
             case ParagonStat.Vitality: VitalityRanks++; break;
             case ParagonStat.Haste: HasteRanks++; break;
         }
-        Changed?.Invoke();
+        CommitChanges();
         return true;
     }
 
@@ -175,7 +183,7 @@ public partial class PlayerProgression : Node
             case PassiveStat.Haste: PassiveHasteRanks += ranks; break;
             case PassiveStat.Mana: PassiveManaRanks += ranks; break;
         }
-        Changed?.Invoke();
+        CommitChanges();
         return true;
     }
 
@@ -184,12 +192,139 @@ public partial class PlayerProgression : Node
         if (Level == 1 && Experience == 0)
         {
             HeroClass = heroClass;
-            Changed?.Invoke();
+            CommitChanges();
+        }
+    }
+
+    private void CommitChanges()
+    {
+        SaveProgress();
+        Changed?.Invoke();
+    }
+
+    private void SaveProgress()
+    {
+        try
+        {
+            var data = new ProgressionSaveData
+            {
+                Version = 1,
+                HeroClass = HeroClass,
+                Level = Level,
+                Experience = Experience,
+                PassivePoints = PassivePoints,
+                ParagonLevel = ParagonLevel,
+                ParagonExperience = ParagonExperience,
+                ParagonPoints = ParagonPoints,
+                PowerRanks = PowerRanks,
+                VitalityRanks = VitalityRanks,
+                HasteRanks = HasteRanks,
+                PassivePowerRanks = PassivePowerRanks,
+                PassiveVitalityRanks = PassiveVitalityRanks,
+                PassiveHasteRanks = PassiveHasteRanks,
+                PassiveManaRanks = PassiveManaRanks,
+                UnlockedLinks = new List<string>(_unlockedLinks).ToArray(),
+                AllocatedPassiveNodes = new List<int>(_allocatedPassiveNodes).ToArray(),
+            };
+            using FileAccess? file = FileAccess.Open(SavePath, FileAccess.ModeFlags.Write);
+            if (file == null)
+            {
+                GD.PushWarning($"[Progression] Could not open save file: {FileAccess.GetOpenError()}");
+                return;
+            }
+            file.StoreString(JsonSerializer.Serialize(data));
+        }
+        catch (Exception exception)
+        {
+            GD.PushWarning($"[Progression] Save failed: {exception.Message}");
+        }
+    }
+
+    private void LoadProgress()
+    {
+        if (!FileAccess.FileExists(SavePath))
+        {
+            return;
+        }
+        try
+        {
+            using FileAccess? file = FileAccess.Open(SavePath, FileAccess.ModeFlags.Read);
+            ProgressionSaveData? data = file == null
+                ? null
+                : JsonSerializer.Deserialize<ProgressionSaveData>(file.GetAsText());
+            if (data == null || data.Version != 1)
+            {
+                GD.PushWarning("[Progression] Ignoring unsupported or empty save data.");
+                return;
+            }
+
+            HeroClass = Enum.IsDefined(data.HeroClass) ? data.HeroClass : HeroClass.Runeblade;
+            Level = Mathf.Clamp(data.Level, 1, MaxLevel);
+            Experience = Mathf.Max(0, data.Experience);
+            PassivePoints = Mathf.Max(0, data.PassivePoints);
+            ParagonLevel = Mathf.Max(0, data.ParagonLevel);
+            ParagonExperience = Mathf.Max(0, data.ParagonExperience);
+            ParagonPoints = Mathf.Max(0, data.ParagonPoints);
+            PowerRanks = Mathf.Max(0, data.PowerRanks);
+            VitalityRanks = Mathf.Max(0, data.VitalityRanks);
+            HasteRanks = Mathf.Max(0, data.HasteRanks);
+            PassivePowerRanks = Mathf.Max(0, data.PassivePowerRanks);
+            PassiveVitalityRanks = Mathf.Max(0, data.PassiveVitalityRanks);
+            PassiveHasteRanks = Mathf.Max(0, data.PassiveHasteRanks);
+            PassiveManaRanks = Mathf.Max(0, data.PassiveManaRanks);
+
+            _unlockedLinks.Clear();
+            _unlockedLinks.Add("fire_link");
+            _unlockedLinks.Add("lightning_form");
+            _unlockedLinks.Add("chain_extension");
+            foreach (string linkId in data.UnlockedLinks)
+            {
+                if (LinkCatalog.ById(linkId) != null)
+                {
+                    _unlockedLinks.Add(linkId);
+                }
+            }
+
+            _allocatedPassiveNodes.Clear();
+            _allocatedPassiveNodes.Add(0);
+            foreach (int nodeId in data.AllocatedPassiveNodes)
+            {
+                if (nodeId is > 0 and <= 360)
+                {
+                    _allocatedPassiveNodes.Add(nodeId);
+                }
+            }
+            GD.Print($"[Progression] Loaded level {Level}, paragon {ParagonLevel}, links {_unlockedLinks.Count}.");
+        }
+        catch (Exception exception)
+        {
+            GD.PushWarning($"[Progression] Load failed, using defaults: {exception.Message}");
         }
     }
 
     private static int CalculateLevelRequirement(int level)
     {
         return 80 + level * 24 + Mathf.RoundToInt(Mathf.Pow(level, 1.32f) * 7f);
+    }
+
+    private sealed class ProgressionSaveData
+    {
+        public int Version { get; set; }
+        public HeroClass HeroClass { get; set; }
+        public int Level { get; set; }
+        public int Experience { get; set; }
+        public int PassivePoints { get; set; }
+        public int ParagonLevel { get; set; }
+        public int ParagonExperience { get; set; }
+        public int ParagonPoints { get; set; }
+        public int PowerRanks { get; set; }
+        public int VitalityRanks { get; set; }
+        public int HasteRanks { get; set; }
+        public int PassivePowerRanks { get; set; }
+        public int PassiveVitalityRanks { get; set; }
+        public int PassiveHasteRanks { get; set; }
+        public int PassiveManaRanks { get; set; }
+        public string[] UnlockedLinks { get; set; } = System.Array.Empty<string>();
+        public int[] AllocatedPassiveNodes { get; set; } = System.Array.Empty<int>();
     }
 }

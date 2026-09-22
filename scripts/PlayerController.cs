@@ -47,6 +47,8 @@ public partial class PlayerController : CharacterBody3D
         CollisionLayer = PhysicsLayers.Player;
         CollisionMask = PhysicsLayers.World | PhysicsLayers.Enemy;
         AddChild(Progression);
+        Health = MaxHealth;
+        Mana = MaxMana;
         Progression.Changed += UpdateProgressionHud;
 
         _bodyMaterial = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.6f, 1f), EmissionEnabled = true, Emission = new Color(0.05f, 0.15f, 0.35f), EmissionEnergyMultiplier = 0.5f };
