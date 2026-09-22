@@ -2,7 +2,7 @@ using Godot;
 
 namespace Sigilwoven;
 
-public partial class Enemy : StaticBody3D
+public partial class Enemy : CharacterBody3D
 {
     public float MaxHp = 60f;
     private float _hp;
@@ -22,6 +22,7 @@ public partial class Enemy : StaticBody3D
     private float _rangedCooldown;
     private float _hitFlash;
     private const float EncounterSpeed = 1.7f;
+    private const float Gravity = 20f;
     private const float AttackRange = 1.9f;
     private const float AttackDamage = 12f;
 
@@ -76,8 +77,13 @@ public partial class Enemy : StaticBody3D
         }
     }
 
-    public override void _Process(double delta)
+    public override void _PhysicsProcess(double delta)
     {
+        float step = (float)delta;
+        Vector3 velocity = Velocity;
+        velocity.X = 0f;
+        velocity.Z = 0f;
+
         if (_encounterTarget != null && IsInstanceValid(_encounterTarget))
         {
             Vector3 direction = _encounterTarget.GlobalPosition - GlobalPosition;
@@ -86,11 +92,13 @@ public partial class Enemy : StaticBody3D
             if (!IsStunned() && distance > AttackRange)
             {
                 float moveMultiplier = _chillTimer > 0f ? 1f - _chillSlow : 1f;
-                GlobalPosition += direction.Normalized() * EncounterSpeed * moveMultiplier * (float)delta;
+                Vector3 movement = direction.Normalized() * EncounterSpeed * moveMultiplier;
+                velocity.X = movement.X;
+                velocity.Z = movement.Z;
                 LookAt(GlobalPosition + direction, Vector3.Up, true);
                 if (distance > 4f && distance < 10f)
                 {
-                    _rangedCooldown -= (float)delta;
+                    _rangedCooldown -= step;
                     if (_rangedCooldown <= 0f && _encounterTarget is PlayerController rangedTarget)
                     {
                         _rangedCooldown = 2.4f + GD.Randf() * 0.8f;
@@ -109,25 +117,37 @@ public partial class Enemy : StaticBody3D
                 }
             }
         }
+
+        if (!IsOnFloor())
+        {
+            velocity.Y -= Gravity * step;
+        }
+        else if (velocity.Y < 0f)
+        {
+            velocity.Y = 0f;
+        }
+        Velocity = velocity;
+        MoveAndSlide();
+
         if (_stunTimer > 0f)
         {
-            _stunTimer -= (float)delta;
+            _stunTimer -= step;
         }
         if (_burnTimer > 0f)
         {
-            _burnTimer -= (float)delta;
-            TakeRawDamage(_burnDps * (float)delta, true);
+            _burnTimer -= step;
+            TakeRawDamage(_burnDps * step, true);
         }
         if (_poisonTimer > 0f)
         {
-            _poisonTimer -= (float)delta;
-            TakeRawDamage(_poisonDps * (float)delta, false, new Color(0.25f, 1f, 0.3f));
+            _poisonTimer -= step;
+            TakeRawDamage(_poisonDps * step, false, new Color(0.25f, 1f, 0.3f));
         }
         if (_chillTimer > 0f)
         {
-            _chillTimer -= (float)delta;
+            _chillTimer -= step;
         }
-        _hitFlash = Mathf.Max(0f, _hitFlash - (float)delta);
+        _hitFlash = Mathf.Max(0f, _hitFlash - step);
     }
 
     public bool IsStunned()
