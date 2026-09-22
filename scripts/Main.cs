@@ -51,6 +51,7 @@ public partial class Main : Node3D
         groundBody.AddChild(groundCol);
 
         BuildArenaMarkers();
+        AddChild(new ArenaEnvironment());
 
         // A soft focal light gives the spawn point a readable silhouette even
         // before the first spell is cast.
