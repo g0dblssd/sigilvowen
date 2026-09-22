@@ -28,7 +28,7 @@ public partial class Main : Node3D
         AddChild(env);
 
         var groundBody = new StaticBody3D();
-        groundBody.CollisionLayer = 1;
+        groundBody.CollisionLayer = PhysicsLayers.World;
         groundBody.CollisionMask = 0;
         AddChild(groundBody);
 

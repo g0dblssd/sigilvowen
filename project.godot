@@ -18,3 +18,12 @@ config/assembly_name="Sigilwoven"
 [dotnet]
 
 project/assembly_name="Sigilwoven"
+
+[layer_names]
+
+3d_physics/layer_1="World"
+3d_physics/layer_2="Player"
+3d_physics/layer_3="Enemy"
+3d_physics/layer_4="Ally"
+3d_physics/layer_5="PlayerProjectile"
+3d_physics/layer_6="Pickup"

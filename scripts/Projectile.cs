@@ -26,8 +26,8 @@ public partial class Projectile : Area3D
     {
         Monitoring = true;
         Monitorable = false;
-        CollisionLayer = 8;
-        CollisionMask = 1;
+        CollisionLayer = PhysicsLayers.PlayerProjectile;
+        CollisionMask = PhysicsLayers.Enemy;
 
         var mat = new StandardMaterial3D
         {

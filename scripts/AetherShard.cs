@@ -13,8 +13,8 @@ public partial class AetherShard : Area3D
     {
         Monitoring = true;
         Monitorable = false;
-        CollisionLayer = 16;
-        CollisionMask = 2;
+        CollisionLayer = PhysicsLayers.Pickup;
+        CollisionMask = PhysicsLayers.Player;
 
         var material = new StandardMaterial3D
         {

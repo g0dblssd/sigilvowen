@@ -23,8 +23,8 @@ public partial class BurningGround : Area3D
     {
         Monitoring = true;
         Monitorable = false;
-        CollisionLayer = 4;
-        CollisionMask = 1;
+        CollisionLayer = 0;
+        CollisionMask = PhysicsLayers.Enemy;
 
         var col = new CollisionShape3D
         {

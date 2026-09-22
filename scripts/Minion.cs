@@ -23,8 +23,8 @@ public partial class Minion : CharacterBody3D
 
     public override void _Ready()
     {
-        CollisionLayer = 2;
-        CollisionMask = 1;
+        CollisionLayer = PhysicsLayers.Ally;
+        CollisionMask = PhysicsLayers.World | PhysicsLayers.Enemy;
 
         bool lightning = _resolved != null && _resolved.LightningForm;
         var mat = new StandardMaterial3D();

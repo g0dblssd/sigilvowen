@@ -39,8 +39,8 @@ public partial class PlayerController : CharacterBody3D
 
     public override void _Ready()
     {
-        CollisionLayer = 2;
-        CollisionMask = 1;
+        CollisionLayer = PhysicsLayers.Player;
+        CollisionMask = PhysicsLayers.World | PhysicsLayers.Enemy;
 
         _bodyMaterial = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.6f, 1f), EmissionEnabled = true, Emission = new Color(0.05f, 0.15f, 0.35f), EmissionEnergyMultiplier = 0.5f };
         _bodyMesh = new MeshInstance3D { Mesh = new CapsuleMesh { Radius = 0.4f, Height = 1.6f } };

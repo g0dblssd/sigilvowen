@@ -40,6 +40,8 @@ public partial class Enemy : StaticBody3D
 
     public override void _Ready()
     {
+        CollisionLayer = PhysicsLayers.Enemy;
+        CollisionMask = PhysicsLayers.Player | PhysicsLayers.Ally;
         AddToGroup("enemies");
         _hp = MaxHp;
 
