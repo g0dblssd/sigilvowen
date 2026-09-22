@@ -24,6 +24,7 @@ public partial class Enemy : CharacterBody3D
     private const float EncounterSpeed = 1.7f;
     private const float Gravity = 20f;
     private const float AttackRange = 1.9f;
+    private const float MaxAttackHeightDifference = 2f;
     private const float AttackDamage = 12f;
 
     public bool IsTrainingDummy => _isTrainingDummy;
@@ -42,7 +43,7 @@ public partial class Enemy : CharacterBody3D
     public override void _Ready()
     {
         CollisionLayer = PhysicsLayers.Enemy;
-        CollisionMask = PhysicsLayers.Player | PhysicsLayers.Ally;
+        CollisionMask = PhysicsLayers.World | PhysicsLayers.Player | PhysicsLayers.Ally;
         AddToGroup("enemies");
         _hp = MaxHp;
 
@@ -106,7 +107,10 @@ public partial class Enemy : CharacterBody3D
                     }
                 }
             }
-            else if (!IsStunned() && distance <= AttackRange && _encounterTarget is PlayerController player)
+            else if (!IsStunned()
+                && distance <= AttackRange
+                && Mathf.Abs(_encounterTarget.GlobalPosition.Y - GlobalPosition.Y) <= MaxAttackHeightDifference
+                && _encounterTarget is PlayerController player)
             {
                 _attackCooldown -= (float)delta;
                 if (_attackCooldown <= 0f)
