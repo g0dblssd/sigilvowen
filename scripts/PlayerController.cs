@@ -31,10 +31,12 @@ public partial class PlayerController : CharacterBody3D
     private float _stoneSkinLeft;
     private float _frostArmorLeft;
 
-    public const float MaxHealth = 150f;
-    public const float MaxMana = 100f;
-    public float Health { get; private set; } = MaxHealth;
-    public float Mana { get; private set; } = MaxMana;
+    public const float BaseMaxHealth = 150f;
+    public const float BaseMaxMana = 100f;
+    public float MaxHealth => BaseMaxHealth + Progression.HealthBonus;
+    public float MaxMana => BaseMaxMana + Progression.ManaBonus;
+    public float Health { get; private set; } = BaseMaxHealth;
+    public float Mana { get; private set; } = BaseMaxMana;
 
     public float DamageMultiplier => (_damageDebuffLeft > 0f ? 0.7f : 1f) * Progression.DamageMultiplier;
     public bool IsBirthLocked => _stunLeft > 0f;
@@ -77,6 +79,10 @@ public partial class PlayerController : CharacterBody3D
         AddChild(_menu);
         _menu.Setup(Caster, Progression);
 
+        var passiveTree = new PassiveTreeUI();
+        passiveTree.Setup(Progression);
+        AddChild(passiveTree);
+
         var layer = new CanvasLayer();
         layer.Layer = 5;
         AddChild(layer);
@@ -97,7 +103,7 @@ public partial class PlayerController : CharacterBody3D
         title.AddThemeFontSizeOverride("font_size", 16);
         layer.AddChild(title);
         var hint = new Label();
-        hint.Text = "Hold LMB to move | 1-6, Z/X/C/V cast | L links | Esc close";
+        hint.Text = "Hold LMB move | 1-6, Z/X/C/V cast | L links | P passives | Esc close";
         hint.Position = new Vector2(20, 36);
         hint.Modulate = new Color(0.72f, 0.78f, 0.9f);
         hint.AddThemeFontSizeOverride("font_size", 12);
@@ -380,8 +386,16 @@ public partial class PlayerController : CharacterBody3D
 
     private void UpdateHud()
     {
-        if (_healthBar != null) _healthBar.Value = Health;
-        if (_manaBar != null) _manaBar.Value = Mana;
+        if (_healthBar != null)
+        {
+            _healthBar.MaxValue = MaxHealth;
+            _healthBar.Value = Health;
+        }
+        if (_manaBar != null)
+        {
+            _manaBar.MaxValue = MaxMana;
+            _manaBar.Value = Mana;
+        }
         if (_healthLabel != null) _healthLabel.Text = $"HEALTH  {(int)Health}/{(int)MaxHealth}";
         if (_manaLabel != null) _manaLabel.Text = $"MANA    {(int)Mana}/{(int)MaxMana}";
     }

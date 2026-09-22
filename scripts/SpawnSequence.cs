@@ -111,7 +111,7 @@ public partial class SpawnSequence : Node
             _player.SetObjectiveStatus($"SURFACE HUNT  •  {_surfacePacksRemaining} PACKS REMAIN");
             return;
         }
-        _player.RestoreMana(PlayerController.MaxMana);
+        _player.RestoreMana(_player.MaxMana);
         _player.SetObjectiveStatus("SURFACE CLEARED  •  DUNGEON UNLOCKED");
         _player.ShowCombatMessage("ECHOING VAULT IS NOW AVAILABLE");
         SurfaceCleared?.Invoke();

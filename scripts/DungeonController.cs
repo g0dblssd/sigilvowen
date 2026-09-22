@@ -151,7 +151,7 @@ public partial class DungeonController : Node
             return;
         }
         SkillLinkData? reward = _player.Progression.UnlockNextLink();
-        _player.RestoreMana(PlayerController.MaxMana);
+        _player.RestoreMana(_player.MaxMana);
         _player.SetObjectiveStatus(reward == null ? "VAULT CLEARED  •  ALL LINKS OWNED" : $"VAULT CLEARED  •  {reward.DisplayName} UNLOCKED");
         _player.ShowCombatMessage(reward == null ? "GUARDIAN DEFEATED — PARAGON XP" : $"NEW LINK: {reward.DisplayName.ToUpperInvariant()}");
         _running = false;
