@@ -7,6 +7,7 @@ public enum EnemyArchetype
     Raider,
     Brute,
     Hexer,
+    Guardian,
 }
 
 public partial class Enemy : CharacterBody3D
@@ -42,6 +43,7 @@ public partial class Enemy : CharacterBody3D
     private const float StatusTickInterval = 0.25f;
 
     public bool IsTrainingDummy => _isTrainingDummy;
+    public event System.Action<Enemy>? Died;
 
     public void Configure(float maxHp, bool isTrainingDummy = false, EnemyArchetype archetype = EnemyArchetype.Raider)
     {
@@ -51,6 +53,7 @@ public partial class Enemy : CharacterBody3D
         {
             EnemyArchetype.Brute => 1.6f,
             EnemyArchetype.Hexer => 0.82f,
+            EnemyArchetype.Guardian => 1f,
             _ => 1f,
         };
         MaxHp = isTrainingDummy ? maxHp : maxHp * healthMultiplier;
@@ -74,6 +77,7 @@ public partial class Enemy : CharacterBody3D
             {
                 EnemyArchetype.Brute => new Color(0.68f, 0.42f, 0.36f),
                 EnemyArchetype.Hexer => new Color(0.48f, 0.58f, 1f),
+                EnemyArchetype.Guardian => new Color(0.9f, 0.62f, 0.18f),
                 _ => Colors.White,
             };
         _mat = new StandardMaterial3D
@@ -91,6 +95,7 @@ public partial class Enemy : CharacterBody3D
         {
             EnemyArchetype.Brute => new Vector3(1.28f, 2.35f, 1.18f),
             EnemyArchetype.Hexer => new Vector3(0.86f, 1.82f, 0.86f),
+            EnemyArchetype.Guardian => new Vector3(1.75f, 3.15f, 1.65f),
             _ => new Vector3(1f, 2f, 1f),
         };
         _bodyBaseY = bodySize.Y * 0.5f;
@@ -230,6 +235,7 @@ public partial class Enemy : CharacterBody3D
         {
             EnemyArchetype.Brute => 1.18f,
             EnemyArchetype.Hexer => 1.52f,
+            EnemyArchetype.Guardian => 1.05f,
             _ => 1.7f,
         };
     }
@@ -245,9 +251,12 @@ public partial class Enemy : CharacterBody3D
         {
             return;
         }
-        _rangedCooldown = _archetype == EnemyArchetype.Hexer
-            ? 1.45f + GD.Randf() * 0.35f
-            : 2.4f + GD.Randf() * 0.8f;
+        _rangedCooldown = _archetype switch
+        {
+            EnemyArchetype.Hexer => 1.45f + GD.Randf() * 0.35f,
+            EnemyArchetype.Guardian => 1.8f + GD.Randf() * 0.3f,
+            _ => 2.4f + GD.Randf() * 0.8f,
+        };
         FireShadowBolt(target);
     }
 
@@ -268,6 +277,7 @@ public partial class Enemy : CharacterBody3D
         {
             EnemyArchetype.Brute => 22f,
             EnemyArchetype.Hexer => 7f,
+            EnemyArchetype.Guardian => 34f,
             _ => 12f,
         };
         target.TakeDamage(damage, _archetype.ToString().ToUpperInvariant());
@@ -282,9 +292,12 @@ public partial class Enemy : CharacterBody3D
             return;
         }
 
-        Color glow = _archetype == EnemyArchetype.Hexer
-            ? new Color(0.2f, 0.55f, 1f)
-            : new Color(1f, 0.18f, 0.03f);
+        Color glow = _archetype switch
+        {
+            EnemyArchetype.Hexer => new Color(0.2f, 0.55f, 1f),
+            EnemyArchetype.Guardian => new Color(1f, 0.62f, 0.05f),
+            _ => new Color(1f, 0.18f, 0.03f),
+        };
         var emberMaterial = new StandardMaterial3D
         {
             AlbedoColor = glow,
@@ -308,7 +321,7 @@ public partial class Enemy : CharacterBody3D
         };
         var blade = new MeshInstance3D
         {
-            Mesh = new BoxMesh { Size = _archetype == EnemyArchetype.Brute ? new Vector3(0.2f, 1.45f, 0.28f) : new Vector3(0.12f, 1.05f, 0.18f) },
+            Mesh = new BoxMesh { Size = _archetype switch { EnemyArchetype.Guardian => new Vector3(0.28f, 1.9f, 0.36f), EnemyArchetype.Brute => new Vector3(0.2f, 1.45f, 0.28f), _ => new Vector3(0.12f, 1.05f, 0.18f) } },
             Position = new Vector3(0.72f, -0.05f, -0.12f),
             Rotation = new Vector3(0f, 0f, -0.35f),
         };
@@ -324,6 +337,17 @@ public partial class Enemy : CharacterBody3D
             };
             halo.SetSurfaceOverrideMaterial(0, emberMaterial);
             _mesh.AddChild(halo);
+        }
+        else if (_archetype == EnemyArchetype.Guardian)
+        {
+            var crown = new MeshInstance3D
+            {
+                Mesh = new TorusMesh { InnerRadius = 0.68f, OuterRadius = 0.79f },
+                Position = new Vector3(0f, 1.05f, 0f),
+                Rotation = new Vector3(Mathf.Pi * 0.5f, 0f, 0f),
+            };
+            crown.SetSurfaceOverrideMaterial(0, emberMaterial);
+            _mesh.AddChild(crown);
         }
     }
 
@@ -454,6 +478,7 @@ public partial class Enemy : CharacterBody3D
         }
         if (_hp <= 0f)
         {
+            Died?.Invoke(this);
             AwardExperience();
             DropAether();
             QueueFree();
@@ -474,6 +499,7 @@ public partial class Enemy : CharacterBody3D
         {
             EnemyArchetype.Brute => 48,
             EnemyArchetype.Hexer => 38,
+            EnemyArchetype.Guardian => 600,
             _ => 25,
         };
         player.Progression.GainExperience(experience);
@@ -533,7 +559,13 @@ public partial class Enemy : CharacterBody3D
             return;
         }
         var bolt = new RaiderBolt();
-        bolt.Configure(target, _archetype == EnemyArchetype.Hexer ? 14f : 9f);
+        float damage = _archetype switch
+        {
+            EnemyArchetype.Hexer => 14f,
+            EnemyArchetype.Guardian => 22f,
+            _ => 9f,
+        };
+        bolt.Configure(target, damage);
         scene.AddChild(bolt);
         bolt.GlobalPosition = GlobalPosition + new Vector3(0f, 1.1f, 0f);
         FlashHit(new Color(0.8f, 0.2f, 1f));

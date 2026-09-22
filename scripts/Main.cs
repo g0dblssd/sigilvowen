@@ -69,6 +69,10 @@ public partial class Main : Node3D
         AddChild(player);
         player.Position = new Vector3(0, 0.2f, 0);
 
+        var dungeon = new DungeonController();
+        AddChild(dungeon);
+        dungeon.Setup(player, this);
+
         var totem = new CrystalTotem();
         AddChild(totem);
         totem.Position = player.Position;
@@ -81,6 +85,7 @@ public partial class Main : Node3D
 
         var birth = new SpawnSequence();
         AddChild(birth);
+        birth.SurfaceCleared += dungeon.UnlockDungeon;
         birth.Setup(player, this);
 
         GD.Print("[Sigilwoven] World ready.");
