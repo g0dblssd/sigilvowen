@@ -2,9 +2,13 @@ using Godot;
 
 namespace Sigilwoven;
 
-/// <summary>Repeatable arena dungeon: dormant packs, guardian, then a link unlock.</summary>
+/// <summary>Repeatable multi-floor raid: clear escalating packs, then defeat the guardian.</summary>
 public partial class DungeonController : Node
 {
+    private const int MaxFloors = 3;
+
+    public event System.Action<bool>? RaidStateChanged;
+
     private PlayerController? _player;
     private Node3D? _world;
     private Button? _startButton;
@@ -12,6 +16,7 @@ public partial class DungeonController : Node
     private bool _unlocked;
     private bool _running;
     private int _packsRemaining;
+    private int _currentFloor;
     private int _runNumber = 1;
 
     public void Setup(PlayerController player, Node3D world)
@@ -39,14 +44,14 @@ public partial class DungeonController : Node
 
         var content = new VBoxContainer();
         panel.AddChild(content);
-        var title = new Label { Text = "ECHOING VAULT  //  DUNGEON" };
+        var title = new Label { Text = "ECHOING VAULT  //  DESCENDING RAID" };
         title.AddThemeFontSizeOverride("font_size", 18);
         title.Modulate = new Color(0.55f, 0.85f, 1f);
         content.AddChild(title);
 
         var description = new Label
         {
-            Text = "Hunt 3 dormant packs, defeat the guardian, unlock a new Link.",
+            Text = "Descend through 3 floors of enemy packs, defeat the guardian, earn a Link and Skill.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
         description.CustomMinimumSize = new Vector2(285f, 54f);
@@ -75,18 +80,51 @@ public partial class DungeonController : Node
             return;
         }
         _running = true;
-        _packsRemaining = 3;
+        _currentFloor = 1;
         _player.GlobalPosition = new Vector3(0f, 0.2f, 0f);
-        _player.SetObjectiveStatus("ECHOING VAULT  •  FIND 3 PACKS");
-        _player.ShowCombatMessage($"DUNGEON RUN {_runNumber} STARTED");
-
-        SpawnPack("ASHEN CLAW", new Vector3(-11f, 0f, -9f), 86f,
-            new[] { EnemyArchetype.Raider, EnemyArchetype.Raider, EnemyArchetype.Brute });
-        SpawnPack("VEIL CHOIR", new Vector3(11f, 0f, -8f), 82f,
-            new[] { EnemyArchetype.Hexer, EnemyArchetype.Hexer, EnemyArchetype.Raider });
-        SpawnPack("IRON VOW", new Vector3(0f, 0f, 13f), 94f,
-            new[] { EnemyArchetype.Brute, EnemyArchetype.Raider, EnemyArchetype.Hexer, EnemyArchetype.Raider });
+        RaidStateChanged?.Invoke(true);
+        _player.ShowCombatMessage($"RAID RUN {_runNumber} STARTED");
+        SpawnRaidFloor();
         RefreshPanel();
+    }
+
+    private void SpawnRaidFloor()
+    {
+        if (_player == null)
+        {
+            return;
+        }
+
+        int packCount = 2 + _currentFloor;
+        int membersPerPack = 3 + _currentFloor;
+        float baseHp = 70f + _currentFloor * 24f + (_runNumber - 1) * 18f;
+        float radius = 15f + _currentFloor * 3f;
+        _packsRemaining = packCount;
+
+        for (int packIndex = 0; packIndex < packCount; packIndex++)
+        {
+            float angle = Mathf.Tau * packIndex / packCount + _currentFloor * 0.31f;
+            var position = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+            var archetypes = new EnemyArchetype[membersPerPack];
+            for (int memberIndex = 0; memberIndex < membersPerPack; memberIndex++)
+            {
+                archetypes[memberIndex] = ((packIndex + memberIndex + _currentFloor) % 4) switch
+                {
+                    0 => EnemyArchetype.Brute,
+                    1 => EnemyArchetype.Hexer,
+                    _ => EnemyArchetype.Raider,
+                };
+            }
+            SpawnPack($"FLOOR {_currentFloor} // PACK {packIndex + 1}", position, baseHp, archetypes);
+        }
+
+        _player.SetObjectiveStatus($"RAID FLOOR {_currentFloor}/{MaxFloors}  •  {_packsRemaining} PACKS");
+        _player.ShowCombatMessage($"FLOOR {_currentFloor} — THE HORDE STIRS");
+        if (_statusLabel != null)
+        {
+            _statusLabel.Text = $"Floor {_currentFloor}/{MaxFloors}: {_packsRemaining} packs remain.";
+        }
+        GD.Print($"[Raid] Run {_runNumber}, floor {_currentFloor}: {packCount} packs, {membersPerPack} enemies each.");
     }
 
     private void SpawnPack(string name, Vector3 position, float baseHp, EnemyArchetype[] archetypes)
@@ -113,14 +151,28 @@ public partial class DungeonController : Node
         _packsRemaining = Mathf.Max(0, _packsRemaining - 1);
         if (_packsRemaining > 0)
         {
-            _player?.SetObjectiveStatus($"ECHOING VAULT  •  {_packsRemaining} PACKS REMAIN");
+            _player?.SetObjectiveStatus($"RAID FLOOR {_currentFloor}/{MaxFloors}  •  {_packsRemaining} PACKS REMAIN");
             if (_statusLabel != null)
             {
-                _statusLabel.Text = $"Dungeon active: {_packsRemaining} packs remain.";
+                _statusLabel.Text = $"Floor {_currentFloor}/{MaxFloors}: {_packsRemaining} packs remain.";
             }
             return;
         }
-        SpawnGuardian();
+
+        if (_currentFloor < MaxFloors)
+        {
+            _currentFloor++;
+            if (_player != null)
+            {
+                _player.GlobalPosition = new Vector3(0f, 0.2f, 0f);
+                _player.ShowCombatMessage($"DESCENDING TO FLOOR {_currentFloor}");
+            }
+            SpawnRaidFloor();
+        }
+        else
+        {
+            SpawnGuardian();
+        }
     }
 
     private void SpawnGuardian()
@@ -130,7 +182,7 @@ public partial class DungeonController : Node
             return;
         }
         var guardian = new Enemy();
-        guardian.Configure(620f + (_runNumber - 1) * 85f, false, EnemyArchetype.Guardian);
+        guardian.Configure(850f + (_runNumber - 1) * 120f, false, EnemyArchetype.Guardian);
         guardian.Died += OnGuardianDied;
         _world.AddChild(guardian);
         guardian.GlobalPosition = new Vector3(0f, 0f, -13f);
@@ -150,13 +202,33 @@ public partial class DungeonController : Node
         {
             return;
         }
-        SkillLinkData? reward = _player.Progression.UnlockNextLink();
+        SkillLinkData? linkReward = _player.Progression.UnlockNextLink();
+        SkillData? skillReward = _player.Progression.UnlockNextSkill();
         _player.RestoreMana(_player.MaxMana);
-        _player.SetObjectiveStatus(reward == null ? "VAULT CLEARED  •  ALL LINKS OWNED" : $"VAULT CLEARED  •  {reward.DisplayName} UNLOCKED");
-        _player.ShowCombatMessage(reward == null ? "GUARDIAN DEFEATED — PARAGON XP" : $"NEW LINK: {reward.DisplayName.ToUpperInvariant()}");
+        string rewardSummary = BuildRewardSummary(linkReward, skillReward);
+        _player.SetObjectiveStatus($"RAID CLEARED  •  {rewardSummary}");
+        _player.ShowCombatMessage(rewardSummary);
         _running = false;
         _runNumber++;
+        RaidStateChanged?.Invoke(false);
         RefreshPanel();
+    }
+
+    private static string BuildRewardSummary(SkillLinkData? linkReward, SkillData? skillReward)
+    {
+        if (linkReward != null && skillReward != null)
+        {
+            return $"LINK: {linkReward.DisplayName.ToUpperInvariant()}  •  SKILL: {skillReward.DisplayName.ToUpperInvariant()}";
+        }
+        if (linkReward != null)
+        {
+            return $"NEW LINK: {linkReward.DisplayName.ToUpperInvariant()}";
+        }
+        if (skillReward != null)
+        {
+            return $"NEW SKILL: {skillReward.DisplayName.ToUpperInvariant()}";
+        }
+        return "GUARDIAN DEFEATED — PARAGON XP";
     }
 
     private void RefreshPanel()
@@ -164,13 +236,13 @@ public partial class DungeonController : Node
         if (_startButton != null)
         {
             _startButton.Disabled = !_unlocked || _running;
-            _startButton.Text = _running ? "DUNGEON IN PROGRESS" : $"ENTER ECHOING VAULT  //  RUN {_runNumber}";
+            _startButton.Text = _running ? $"RAID FLOOR {_currentFloor}/{MaxFloors}" : $"START DESCENDING RAID  //  RUN {_runNumber}";
         }
         if (_statusLabel != null && !_running)
         {
             _statusLabel.Text = _unlocked
-                ? "Ready. Every clear unlocks the next sealed Link."
-                : "Locked: clear the three surface packs first.";
+                ? "Ready. Every clear grants the next sealed Link and Skill."
+                : "Locked: purge every surface camp once.";
         }
     }
 }

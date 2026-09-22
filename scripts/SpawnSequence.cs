@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace Sigilwoven;
@@ -10,11 +11,26 @@ public partial class SpawnSequence : Node
     private bool _packsSpawned;
     private bool _ready;
     private bool _ritualStarted;
-    private int _surfacePacksRemaining;
+    private bool _populationPaused;
+    private bool _dungeonUnlocked;
+    private int _initialPacksRemaining;
     private int _lastObjectiveValue = -1;
+    private float _worldClock;
     private PlayerController? _player;
     private Node3D? _world;
+    private readonly List<SurfacePackDefinition> _packDefinitions = new();
     public event System.Action? SurfaceCleared;
+
+    private sealed class SurfacePackDefinition
+    {
+        public string Name = "";
+        public Vector3 Position;
+        public float BaseHp;
+        public EnemyArchetype[] Archetypes = System.Array.Empty<EnemyArchetype>();
+        public bool FirstClearComplete;
+        public float RespawnAt = -1f;
+        public MobPack? ActivePack;
+    }
 
     public void Setup(PlayerController player, Node3D world)
     {
@@ -45,6 +61,7 @@ public partial class SpawnSequence : Node
     {
         if (_packsSpawned)
         {
+            UpdatePopulation((float)delta);
             return;
         }
         _elapsed += (float)delta;
@@ -63,6 +80,26 @@ public partial class SpawnSequence : Node
         }
     }
 
+    public void SetPopulationPaused(bool paused)
+    {
+        _populationPaused = paused;
+        if (!paused)
+        {
+            _player?.SetObjectiveStatus("WORLD HUNT  •  PACKS ARE REFORMING");
+            return;
+        }
+        foreach (SurfacePackDefinition definition in _packDefinitions)
+        {
+            if (definition.ActivePack != null && IsInstanceValid(definition.ActivePack))
+            {
+                definition.ActivePack.Cleared -= OnSurfacePackCleared;
+                definition.ActivePack.QueueFree();
+                definition.ActivePack = null;
+                definition.RespawnAt = _worldClock + 12f;
+            }
+        }
+    }
+
     private void SpawnSurfacePacks()
     {
         PlayerController? player = _player;
@@ -72,49 +109,113 @@ public partial class SpawnSequence : Node
             return;
         }
         _packsSpawned = true;
-        _surfacePacksRemaining = 3;
-        SpawnPack(world, player, "EMBER RAIDERS", new Vector3(10f, 0f, 2f), 62f,
-            new[] { EnemyArchetype.Raider, EnemyArchetype.Raider, EnemyArchetype.Brute });
-        SpawnPack(world, player, "VEIL HEXERS", new Vector3(-10f, 0f, -8f), 58f,
-            new[] { EnemyArchetype.Hexer, EnemyArchetype.Hexer, EnemyArchetype.Raider });
-        SpawnPack(world, player, "BROKEN VOW", new Vector3(5f, 0f, 13f), 68f,
-            new[] { EnemyArchetype.Brute, EnemyArchetype.Raider, EnemyArchetype.Hexer, EnemyArchetype.Raider });
-        player.SetObjectiveStatus("SURFACE HUNT  •  3 DORMANT PACKS");
+        _packDefinitions.AddRange(new[]
+        {
+            CreateDefinition("EMBER RAIDERS", new Vector3(15f, 0f, 7f), 62f, EnemyArchetype.Raider, EnemyArchetype.Raider, EnemyArchetype.Brute),
+            CreateDefinition("VEIL HEXERS", new Vector3(-18f, 0f, -13f), 58f, EnemyArchetype.Hexer, EnemyArchetype.Hexer, EnemyArchetype.Raider),
+            CreateDefinition("BROKEN VOW", new Vector3(8f, 0f, 27f), 68f, EnemyArchetype.Brute, EnemyArchetype.Raider, EnemyArchetype.Hexer, EnemyArchetype.Raider),
+            CreateDefinition("ASHEN TEETH", new Vector3(34f, 0f, -22f), 74f, EnemyArchetype.Raider, EnemyArchetype.Brute, EnemyArchetype.Brute, EnemyArchetype.Raider),
+            CreateDefinition("PALE CIRCLE", new Vector3(-36f, 0f, 21f), 72f, EnemyArchetype.Hexer, EnemyArchetype.Hexer, EnemyArchetype.Brute, EnemyArchetype.Raider),
+            CreateDefinition("HOLLOW OATH", new Vector3(2f, 0f, -40f), 78f, EnemyArchetype.Brute, EnemyArchetype.Raider, EnemyArchetype.Hexer, EnemyArchetype.Raider, EnemyArchetype.Brute),
+        });
+        _initialPacksRemaining = _packDefinitions.Count;
+        foreach (SurfacePackDefinition definition in _packDefinitions)
+        {
+            SpawnPack(world, player, definition);
+        }
+        player.SetObjectiveStatus($"WORLD HUNT  •  {_packDefinitions.Count} DORMANT PACKS");
         player.ShowCombatMessage("PACKS AWAKEN WHEN YOU ENTER THEIR SIGILS");
-        GD.Print("[Spawn] Ritual complete. Three dormant surface packs placed.");
+        GD.Print($"[Spawn] Ritual complete. {_packDefinitions.Count} respawning surface packs placed.");
     }
 
-    private void SpawnPack(Node3D world, PlayerController player, string name, Vector3 position, float baseHp, EnemyArchetype[] archetypes)
+    private static SurfacePackDefinition CreateDefinition(string name, Vector3 position, float baseHp, params EnemyArchetype[] archetypes)
+    {
+        return new SurfacePackDefinition { Name = name, Position = position, BaseHp = baseHp, Archetypes = archetypes };
+    }
+
+    private void SpawnPack(Node3D world, PlayerController player, SurfacePackDefinition definition)
     {
         var pack = new MobPack();
-        pack.Setup(player, name, 5.2f);
-        for (int i = 0; i < archetypes.Length; i++)
+        pack.Setup(player, definition.Name, 6f);
+        for (int i = 0; i < definition.Archetypes.Length; i++)
         {
-            float angle = Mathf.Tau * i / archetypes.Length;
-            pack.AddMember(baseHp, archetypes[i], new Vector3(Mathf.Cos(angle) * 1.55f, 0f, Mathf.Sin(angle) * 1.55f));
+            float angle = Mathf.Tau * i / definition.Archetypes.Length;
+            pack.AddMember(definition.BaseHp, definition.Archetypes[i], new Vector3(Mathf.Cos(angle) * 1.8f, 0f, Mathf.Sin(angle) * 1.8f));
         }
         pack.Cleared += OnSurfacePackCleared;
         world.AddChild(pack);
-        pack.GlobalPosition = position;
+        pack.GlobalPosition = definition.Position;
+        definition.ActivePack = pack;
+        definition.RespawnAt = -1f;
     }
 
     private void OnSurfacePackCleared(MobPack pack)
     {
         pack.Cleared -= OnSurfacePackCleared;
-        _surfacePacksRemaining = Mathf.Max(0, _surfacePacksRemaining - 1);
+        SurfacePackDefinition? clearedDefinition = null;
+        foreach (SurfacePackDefinition definition in _packDefinitions)
+        {
+            if (definition.ActivePack == pack)
+            {
+                clearedDefinition = definition;
+                break;
+            }
+        }
+        if (clearedDefinition == null)
+        {
+            return;
+        }
+        clearedDefinition.ActivePack = null;
+        clearedDefinition.RespawnAt = _worldClock + 14f;
+        if (!clearedDefinition.FirstClearComplete)
+        {
+            clearedDefinition.FirstClearComplete = true;
+            _initialPacksRemaining = Mathf.Max(0, _initialPacksRemaining - 1);
+        }
         if (_player == null)
         {
             return;
         }
-        if (_surfacePacksRemaining > 0)
+        if (!_dungeonUnlocked && _initialPacksRemaining > 0)
         {
-            _player.SetObjectiveStatus($"SURFACE HUNT  •  {_surfacePacksRemaining} PACKS REMAIN");
+            _player.SetObjectiveStatus($"WORLD HUNT  •  {_initialPacksRemaining} FIRST-CLEAR PACKS REMAIN");
             return;
         }
-        _player.RestoreMana(_player.MaxMana);
-        _player.SetObjectiveStatus("SURFACE CLEARED  •  DUNGEON UNLOCKED");
-        _player.ShowCombatMessage("ECHOING VAULT IS NOW AVAILABLE");
-        SurfaceCleared?.Invoke();
-        GD.Print("[Spawn] Surface packs cleared. Dungeon unlocked.");
+        if (!_dungeonUnlocked)
+        {
+            _dungeonUnlocked = true;
+            _player.RestoreMana(_player.MaxMana);
+            _player.SetObjectiveStatus("WORLD FIRST CLEAR  •  RAID UNLOCKED");
+            _player.ShowCombatMessage("THE DESCENDING RAID IS NOW AVAILABLE");
+            SurfaceCleared?.Invoke();
+            GD.Print("[Spawn] Surface first-clear complete. Raid unlocked.");
+        }
+    }
+
+    private void UpdatePopulation(float delta)
+    {
+        if (_populationPaused || _world == null || _player == null)
+        {
+            return;
+        }
+        _worldClock += delta;
+        int activeCount = 0;
+        foreach (SurfacePackDefinition definition in _packDefinitions)
+        {
+            if (definition.ActivePack != null && IsInstanceValid(definition.ActivePack))
+            {
+                activeCount++;
+            }
+            else if (definition.RespawnAt >= 0f && _worldClock >= definition.RespawnAt)
+            {
+                SpawnPack(_world, _player, definition);
+                activeCount++;
+            }
+        }
+        if (_dungeonUnlocked && activeCount != _lastObjectiveValue)
+        {
+            _lastObjectiveValue = activeCount;
+            _player.SetObjectiveStatus($"OPEN WORLD  •  {activeCount} ACTIVE PACKS  •  RAID READY");
+        }
     }
 }

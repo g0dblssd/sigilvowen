@@ -41,6 +41,7 @@ public partial class PlayerProgression : Node
         "chain_extension",
     };
     private readonly HashSet<int> _allocatedPassiveNodes = new() { 0 };
+    private readonly HashSet<string> _rewardUnlockedSkills = new(StringComparer.Ordinal);
 
     public HeroClass HeroClass { get; private set; } = HeroClass.Runeblade;
     public int Level { get; private set; } = 1;
@@ -142,7 +143,29 @@ public partial class PlayerProgression : Node
 
     public bool IsSkillUnlocked(string skillId)
     {
-        return Level >= GetSkillRequiredLevel(skillId);
+        return Level >= GetSkillRequiredLevel(skillId) || _rewardUnlockedSkills.Contains(skillId);
+    }
+
+    public bool UnlockSkill(string skillId)
+    {
+        if (SkillCatalog.ById(skillId) == null || IsSkillUnlocked(skillId) || !_rewardUnlockedSkills.Add(skillId))
+        {
+            return false;
+        }
+        CommitChanges();
+        return true;
+    }
+
+    public SkillData? UnlockNextSkill()
+    {
+        foreach (SkillData skill in SkillCatalog.All)
+        {
+            if (GetSkillRequiredLevel(skill.Id) > 1 && UnlockSkill(skill.Id))
+            {
+                return skill;
+            }
+        }
+        return null;
     }
 
     public bool UnlockLink(string linkId)
@@ -255,6 +278,7 @@ public partial class PlayerProgression : Node
                 PassiveManaRanks = PassiveManaRanks,
                 UnlockedLinks = new List<string>(_unlockedLinks).ToArray(),
                 AllocatedPassiveNodes = new List<int>(_allocatedPassiveNodes).ToArray(),
+                RewardUnlockedSkills = new List<string>(_rewardUnlockedSkills).ToArray(),
             };
             using FileAccess? file = FileAccess.Open(SavePath, FileAccess.ModeFlags.Write);
             if (file == null)
@@ -324,6 +348,14 @@ public partial class PlayerProgression : Node
                     _allocatedPassiveNodes.Add(nodeId);
                 }
             }
+            _rewardUnlockedSkills.Clear();
+            foreach (string skillId in data.RewardUnlockedSkills)
+            {
+                if (SkillCatalog.ById(skillId) != null)
+                {
+                    _rewardUnlockedSkills.Add(skillId);
+                }
+            }
             GD.Print($"[Progression] Loaded level {Level}, paragon {ParagonLevel}, links {_unlockedLinks.Count}.");
         }
         catch (Exception exception)
@@ -356,5 +388,6 @@ public partial class PlayerProgression : Node
         public int PassiveManaRanks { get; set; }
         public string[] UnlockedLinks { get; set; } = System.Array.Empty<string>();
         public int[] AllocatedPassiveNodes { get; set; } = System.Array.Empty<int>();
+        public string[] RewardUnlockedSkills { get; set; } = System.Array.Empty<string>();
     }
 }

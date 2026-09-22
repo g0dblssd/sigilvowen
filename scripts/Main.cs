@@ -41,12 +41,12 @@ public partial class Main : Node3D
             TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
             Uv1Scale = new Vector3(8f, 8f, 1f),
         };
-        var groundMesh = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(60f, 1f, 60f) } };
+        var groundMesh = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(140f, 1f, 140f) } };
         groundMesh.SetSurfaceOverrideMaterial(0, groundMat);
         groundMesh.Position = new Vector3(0, -0.5f, 0);
         groundBody.AddChild(groundMesh);
 
-        var groundCol = new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(60f, 1f, 60f) } };
+        var groundCol = new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(140f, 1f, 140f) } };
         groundCol.Position = new Vector3(0, -0.5f, 0);
         groundBody.AddChild(groundCol);
 
@@ -86,6 +86,7 @@ public partial class Main : Node3D
         var birth = new SpawnSequence();
         AddChild(birth);
         birth.SurfaceCleared += dungeon.UnlockDungeon;
+        dungeon.RaidStateChanged += birth.SetPopulationPaused;
         birth.Setup(player, this);
 
         GD.Print("[Sigilwoven] World ready.");

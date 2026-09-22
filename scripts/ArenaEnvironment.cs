@@ -39,10 +39,10 @@ public partial class ArenaEnvironment : Node3D
             Uv1Scale = new Vector3(5f, 1f, 1f),
         };
 
-        CreateWall(new Vector3(0f, 0f, -24f), new Vector3(48f, 1.4f, 1f), wallMaterial);
-        CreateWall(new Vector3(0f, 0f, 24f), new Vector3(48f, 1.4f, 1f), wallMaterial);
-        CreateWall(new Vector3(-24f, 0f, 0f), new Vector3(1f, 1.4f, 48f), wallMaterial);
-        CreateWall(new Vector3(24f, 0f, 0f), new Vector3(1f, 1.4f, 48f), wallMaterial);
+        CreateWall(new Vector3(0f, 0f, -64f), new Vector3(128f, 1.4f, 1f), wallMaterial);
+        CreateWall(new Vector3(0f, 0f, 64f), new Vector3(128f, 1.4f, 1f), wallMaterial);
+        CreateWall(new Vector3(-64f, 0f, 0f), new Vector3(1f, 1.4f, 128f), wallMaterial);
+        CreateWall(new Vector3(64f, 0f, 0f), new Vector3(1f, 1.4f, 128f), wallMaterial);
     }
 
     private void CreateWall(Vector3 position, Vector3 size, StandardMaterial3D material)
@@ -83,13 +83,13 @@ public partial class ArenaEnvironment : Node3D
             EmissionEnergyMultiplier = 3.2f,
         };
 
-        const int count = 8;
+        const int count = 12;
         for (int i = 0; i < count; i++)
         {
             float angle = Mathf.Tau * i / count + Mathf.Pi / 8f;
             var anchor = new Node3D
             {
-                Position = new Vector3(Mathf.Cos(angle) * 19f, 0f, Mathf.Sin(angle) * 19f),
+                Position = new Vector3(Mathf.Cos(angle) * 52f, 0f, Mathf.Sin(angle) * 52f),
             };
             AddChild(anchor);
 
