@@ -115,6 +115,35 @@ public partial class PlayerProgression : Node
         return _unlockedLinks.Contains(linkId);
     }
 
+    public int GetSkillRequiredLevel(string skillId)
+    {
+        return skillId switch
+        {
+            "ember_imp" => 3,
+            "spark_bolt" => 4,
+            "lightning_wisp" => 5,
+            "stone_shot" => 6,
+            "frost_spider" => 7,
+            "stone_skin" => 8,
+            "venom_fang" => 10,
+            "dread_hound" => 12,
+            "frost_armor" => 14,
+            "firestorm" => 15,
+            "thunderstorm" => 18,
+            "toxic_cloud" => 20,
+            "earthquake" => 22,
+            "plague_nova" => 24,
+            "phoenix" => 25,
+            "arc_surge" => 28,
+            _ => 1,
+        };
+    }
+
+    public bool IsSkillUnlocked(string skillId)
+    {
+        return Level >= GetSkillRequiredLevel(skillId);
+    }
+
     public bool UnlockLink(string linkId)
     {
         if (LinkCatalog.ById(linkId) == null || !_unlockedLinks.Add(linkId))

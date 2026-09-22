@@ -143,6 +143,13 @@ public partial class SkillCaster : Node
         {
             return;
         }
+        var selectedSkill = Slots[SelectedSlot].Skill;
+        if (_ownerPlayer is PlayerController progressionPlayer && !progressionPlayer.Progression.IsSkillUnlocked(selectedSkill.Id))
+        {
+            int requiredLevel = progressionPlayer.Progression.GetSkillRequiredLevel(selectedSkill.Id);
+            progressionPlayer.ShowCombatMessage($"{selectedSkill.DisplayName.ToUpperInvariant()} UNLOCKS AT LEVEL {requiredLevel}");
+            return;
+        }
         if (_cooldownLeft[SelectedSlot] > 0f)
         {
             if (_ownerPlayer is PlayerController player)

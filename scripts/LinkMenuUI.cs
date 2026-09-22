@@ -19,7 +19,9 @@ public partial class LinkMenuUI : CanvasLayer
         _caster = caster;
         _progression = progression;
         _progression.LinkUnlocked += OnLinkUnlocked;
+        _progression.Changed += OnProgressionChanged;
         RefreshLinkAvailability();
+        RefreshSkillAvailability();
     }
 
     public bool IsOpen()
@@ -54,6 +56,7 @@ public partial class LinkMenuUI : CanvasLayer
         _skillOption.Selected = 1;
         _skillOption.ItemSelected += OnSkillSelected;
         vbox.AddChild(_skillOption);
+        RefreshSkillAvailability();
 
         var slotLabel = new Label { Text = "Apply to skill slot:" };
         vbox.AddChild(slotLabel);
@@ -89,6 +92,7 @@ public partial class LinkMenuUI : CanvasLayer
         if (_progression != null)
         {
             _progression.LinkUnlocked -= OnLinkUnlocked;
+            _progression.Changed -= OnProgressionChanged;
         }
     }
 
@@ -143,6 +147,11 @@ public partial class LinkMenuUI : CanvasLayer
             return;
         }
         var skill = SkillCatalog.All[idx];
+        if (_progression != null && !_progression.IsSkillUnlocked(skill.Id))
+        {
+            _status.Text = $"LOCKED: {skill.DisplayName} unlocks at level {_progression.GetSkillRequiredLevel(skill.Id)}.";
+            return;
+        }
         var links = new List<SkillLinkData>();
         for (int i = 0; i < _linkChecks.Count && i < LinkCatalog.All.Count; i++)
         {
@@ -191,6 +200,29 @@ public partial class LinkMenuUI : CanvasLayer
         if (_status != null && LinkCatalog.ById(linkId) is SkillLinkData link)
         {
             _status.Text = $"UNLOCKED: {link.DisplayName} is now available.";
+        }
+    }
+
+    private void OnProgressionChanged()
+    {
+        RefreshSkillAvailability();
+    }
+
+    private void RefreshSkillAvailability()
+    {
+        if (_skillOption == null)
+        {
+            return;
+        }
+        for (int i = 0; i < SkillCatalog.All.Count; i++)
+        {
+            SkillData skill = SkillCatalog.All[i];
+            int requiredLevel = _progression?.GetSkillRequiredLevel(skill.Id) ?? 1;
+            bool unlocked = _progression == null || _progression.IsSkillUnlocked(skill.Id);
+            _skillOption.SetItemDisabled(i, !unlocked);
+            _skillOption.SetItemText(i, unlocked
+                ? $"{skill.DisplayName} [{skill.Type}/{skill.DamageElement}]"
+                : $"🔒 {skill.DisplayName} [LEVEL {requiredLevel}]");
         }
     }
 
