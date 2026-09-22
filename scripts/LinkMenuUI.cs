@@ -6,6 +6,7 @@ namespace Sigilwoven;
 public partial class LinkMenuUI : CanvasLayer
 {
     private SkillCaster? _caster;
+    private PlayerProgression? _progression;
     private Control? _panel;
     private OptionButton? _skillOption;
     private OptionButton? _slotOption;
@@ -13,9 +14,12 @@ public partial class LinkMenuUI : CanvasLayer
     private Label? _status;
     private bool _open;
 
-    public void Setup(SkillCaster caster)
+    public void Setup(SkillCaster caster, PlayerProgression progression)
     {
         _caster = caster;
+        _progression = progression;
+        _progression.LinkUnlocked += OnLinkUnlocked;
+        RefreshLinkAvailability();
     }
 
     public bool IsOpen()
@@ -70,6 +74,7 @@ public partial class LinkMenuUI : CanvasLayer
             vbox.AddChild(cb);
             _linkChecks.Add(cb);
         }
+        RefreshLinkAvailability();
 
         var apply = new Button { Text = "Bind selected links to slot" };
         apply.Pressed += OnApply;
@@ -77,6 +82,14 @@ public partial class LinkMenuUI : CanvasLayer
 
         _status = new Label { Text = "Pick skill + links, press Apply." };
         vbox.AddChild(_status);
+    }
+
+    public override void _ExitTree()
+    {
+        if (_progression != null)
+        {
+            _progression.LinkUnlocked -= OnLinkUnlocked;
+        }
     }
 
     public override void _Input(InputEvent @event)
@@ -135,6 +148,11 @@ public partial class LinkMenuUI : CanvasLayer
         {
             if (_linkChecks[i].ButtonPressed)
             {
+                if (_progression != null && !_progression.IsLinkUnlocked(LinkCatalog.All[i].Id))
+                {
+                    _status.Text = $"LOCKED: defeat a dungeon guardian to unlock {LinkCatalog.All[i].DisplayName}.";
+                    return;
+                }
                 links.Add(LinkCatalog.All[i]);
             }
         }
@@ -165,6 +183,32 @@ public partial class LinkMenuUI : CanvasLayer
         int chargesLeft = _caster.GetLinkCharges(skill);
         _status.Text = $"BOUND: Slot {slotIndex + 1} = {skill.DisplayName} + {links.Count} links | charges {chargesLeft}/{SkillData.MaxLinkCharges}";
         GD.Print($"[Links] Slot {slotIndex + 1} set to {skill.Id} + {links.Count} links, charges={chargesLeft}");
+    }
+
+    private void OnLinkUnlocked(string linkId)
+    {
+        RefreshLinkAvailability();
+        if (_status != null && LinkCatalog.ById(linkId) is SkillLinkData link)
+        {
+            _status.Text = $"UNLOCKED: {link.DisplayName} is now available.";
+        }
+    }
+
+    private void RefreshLinkAvailability()
+    {
+        for (int i = 0; i < _linkChecks.Count && i < LinkCatalog.All.Count; i++)
+        {
+            SkillLinkData link = LinkCatalog.All[i];
+            bool unlocked = _progression == null || _progression.IsLinkUnlocked(link.Id);
+            _linkChecks[i].Disabled = !unlocked;
+            _linkChecks[i].Text = unlocked
+                ? $"{link.DisplayName} — {link.Description}"
+                : $"🔒 {link.DisplayName} — defeat a dungeon guardian";
+            if (!unlocked)
+            {
+                _linkChecks[i].ButtonPressed = false;
+            }
+        }
     }
 
     private void OnSlotSelected(long selected)

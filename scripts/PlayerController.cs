@@ -10,12 +10,14 @@ public partial class PlayerController : CharacterBody3D
     private Node3D? _camPivot;
     private Camera3D? _camera;
     public SkillCaster? Caster { get; private set; }
+    public PlayerProgression Progression { get; } = new();
     private LinkMenuUI? _menu;
     private Label? _statusLabel;
     private Label? _healthLabel;
     private Label? _manaLabel;
     private Label? _combatMessage;
     private Label? _objectiveLabel;
+    private Label? _progressionLabel;
     private ProgressBar? _healthBar;
     private ProgressBar? _manaBar;
     private StandardMaterial3D? _bodyMaterial;
@@ -34,7 +36,7 @@ public partial class PlayerController : CharacterBody3D
     public float Health { get; private set; } = MaxHealth;
     public float Mana { get; private set; } = MaxMana;
 
-    public float DamageMultiplier => _damageDebuffLeft > 0f ? 0.7f : 1f;
+    public float DamageMultiplier => (_damageDebuffLeft > 0f ? 0.7f : 1f) * Progression.DamageMultiplier;
     public bool IsBirthLocked => _stunLeft > 0f;
     public bool IsControlLocked => _ritualLockLeft > 0f;
 
@@ -42,6 +44,8 @@ public partial class PlayerController : CharacterBody3D
     {
         CollisionLayer = PhysicsLayers.Player;
         CollisionMask = PhysicsLayers.World | PhysicsLayers.Enemy;
+        AddChild(Progression);
+        Progression.Changed += UpdateProgressionHud;
 
         _bodyMaterial = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.6f, 1f), EmissionEnabled = true, Emission = new Color(0.05f, 0.15f, 0.35f), EmissionEnergyMultiplier = 0.5f };
         _bodyMesh = new MeshInstance3D { Mesh = new CapsuleMesh { Radius = 0.4f, Height = 1.6f } };
@@ -71,7 +75,7 @@ public partial class PlayerController : CharacterBody3D
 
         _menu = new LinkMenuUI();
         AddChild(_menu);
-        _menu.Setup(Caster);
+        _menu.Setup(Caster, Progression);
 
         var layer = new CanvasLayer();
         layer.Layer = 5;
@@ -79,7 +83,7 @@ public partial class PlayerController : CharacterBody3D
         var hudBack = new ColorRect
         {
             Position = new Vector2(8, 7),
-            Size = new Vector2(430, 208),
+            Size = new Vector2(430, 236),
             Color = new Color(0.015f, 0.025f, 0.07f, 0.78f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
@@ -120,6 +124,10 @@ public partial class PlayerController : CharacterBody3D
         _objectiveLabel.AddThemeFontSizeOverride("font_size", 13);
         _objectiveLabel.Text = "OBJECTIVE  //  AWAKEN";
         layer.AddChild(_objectiveLabel);
+        _progressionLabel = new Label { Position = new Vector2(20, 199), Modulate = new Color(0.82f, 0.72f, 1f) };
+        _progressionLabel.AddThemeFontSizeOverride("font_size", 12);
+        layer.AddChild(_progressionLabel);
+        UpdateProgressionHud();
         UpdateHud();
 
         try
@@ -329,6 +337,22 @@ public partial class PlayerController : CharacterBody3D
         if (_objectiveLabel != null)
         {
             _objectiveLabel.Text = $"OBJECTIVE  //  {text}";
+        }
+    }
+
+    private void UpdateProgressionHud()
+    {
+        if (_progressionLabel == null)
+        {
+            return;
+        }
+        if (Progression.Level < PlayerProgression.MaxLevel)
+        {
+            _progressionLabel.Text = $"{Progression.HeroClass.ToString().ToUpperInvariant()}  •  LV {Progression.Level}/{PlayerProgression.MaxLevel}  •  XP {Progression.Experience}/{Progression.ExperienceToNextLevel}  •  PASSIVE {Progression.PassivePoints}";
+        }
+        else
+        {
+            _progressionLabel.Text = $"LV 300  •  PARAGON {Progression.ParagonLevel}  •  XP {Progression.ParagonExperience}/{Progression.ExperienceToNextParagon}  •  POINTS {Progression.ParagonPoints}";
         }
     }
 

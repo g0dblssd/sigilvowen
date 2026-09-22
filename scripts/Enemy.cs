@@ -454,6 +454,7 @@ public partial class Enemy : CharacterBody3D
         }
         if (_hp <= 0f)
         {
+            AwardExperience();
             DropAether();
             QueueFree();
         }
@@ -461,6 +462,21 @@ public partial class Enemy : CharacterBody3D
         {
             UpdateHealthLabel();
         }
+    }
+
+    private void AwardExperience()
+    {
+        if (_encounterTarget is not PlayerController player || !IsInstanceValid(player))
+        {
+            return;
+        }
+        int experience = _archetype switch
+        {
+            EnemyArchetype.Brute => 48,
+            EnemyArchetype.Hexer => 38,
+            _ => 25,
+        };
+        player.Progression.GainExperience(experience);
     }
 
     private void SpawnDamageNumber(float amount, bool isBurn, Color? color = null)

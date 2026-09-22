@@ -165,7 +165,10 @@ public partial class SkillCaster : Node
         {
             resolved.Damage *= damageOwner.DamageMultiplier;
         }
-        _cooldownLeft[SelectedSlot] = slot.Skill.Cooldown * resolved.CooldownMultiplier;
+        float progressionCooldown = _ownerPlayer is PlayerController progressionOwner
+            ? progressionOwner.Progression.CooldownMultiplier
+            : 1f;
+        _cooldownLeft[SelectedSlot] = slot.Skill.Cooldown * resolved.CooldownMultiplier * progressionCooldown;
 
         switch (slot.Skill.Type)
         {
