@@ -15,6 +15,7 @@ public partial class PlayerController : CharacterBody3D
     private Label? _healthLabel;
     private Label? _manaLabel;
     private Label? _combatMessage;
+    private Label? _objectiveLabel;
     private ProgressBar? _healthBar;
     private ProgressBar? _manaBar;
     private StandardMaterial3D? _bodyMaterial;
@@ -78,7 +79,7 @@ public partial class PlayerController : CharacterBody3D
         var hudBack = new ColorRect
         {
             Position = new Vector2(8, 7),
-            Size = new Vector2(430, 178),
+            Size = new Vector2(430, 208),
             Color = new Color(0.015f, 0.025f, 0.07f, 0.78f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
@@ -115,6 +116,10 @@ public partial class PlayerController : CharacterBody3D
         layer.AddChild(_manaBar);
         _combatMessage = new Label { Position = new Vector2(20, 143), Modulate = new Color(1f, 0.8f, 0.35f) };
         layer.AddChild(_combatMessage);
+        _objectiveLabel = new Label { Position = new Vector2(20, 171), Modulate = new Color(0.48f, 0.9f, 1f) };
+        _objectiveLabel.AddThemeFontSizeOverride("font_size", 13);
+        _objectiveLabel.Text = "OBJECTIVE  //  AWAKEN";
+        layer.AddChild(_objectiveLabel);
         UpdateHud();
 
         try
@@ -316,6 +321,14 @@ public partial class PlayerController : CharacterBody3D
         if (_combatMessage != null)
         {
             _combatMessage.Text = text;
+        }
+    }
+
+    public void SetObjectiveStatus(string text)
+    {
+        if (_objectiveLabel != null)
+        {
+            _objectiveLabel.Text = $"OBJECTIVE  //  {text}";
         }
     }
 
