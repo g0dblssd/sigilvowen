@@ -5,6 +5,7 @@ namespace Sigilwoven;
 // Result of LinkSystem.ResolveCast: final damage + bonus procs.
 public class ResolvedCast
 {
+    public readonly List<string> AppliedLinks = new();
     public DamageElement Element;
     public float Damage;
     public float CooldownMultiplier = 1f;
@@ -46,6 +47,7 @@ public static class LinkSystem
 
         foreach (var link in links)
         {
+            r.AppliedLinks.Add(link.Id);
             switch (link.Id)
             {
                 case "lightning_form":

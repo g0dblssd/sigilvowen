@@ -11,6 +11,7 @@ public partial class SpawnSequence : Node
     private bool _packsSpawned;
     private bool _ready;
     private bool _ritualStarted;
+    private bool _classConfirmed;
     private bool _populationPaused;
     private bool _dungeonUnlocked;
     private int _initialPacksRemaining;
@@ -45,9 +46,15 @@ public partial class SpawnSequence : Node
         StartRitualIfReady();
     }
 
+    public void ConfirmClassChoice()
+    {
+        _classConfirmed = true;
+        StartRitualIfReady();
+    }
+
     private void StartRitualIfReady()
     {
-        if (!_ready || _ritualStarted || _player == null)
+        if (!_ready || !_classConfirmed || _ritualStarted || _player == null)
         {
             return;
         }
@@ -140,7 +147,8 @@ public partial class SpawnSequence : Node
         for (int i = 0; i < definition.Archetypes.Length; i++)
         {
             float angle = Mathf.Tau * i / definition.Archetypes.Length;
-            pack.AddMember(definition.BaseHp, definition.Archetypes[i], new Vector3(Mathf.Cos(angle) * 1.8f, 0f, Mathf.Sin(angle) * 1.8f));
+            EliteModifier elite = i == 0 ? Enemy.RollEliteModifier() : EliteModifier.None;
+            pack.AddMember(definition.BaseHp, definition.Archetypes[i], new Vector3(Mathf.Cos(angle) * 1.8f, 0f, Mathf.Sin(angle) * 1.8f), elite);
         }
         pack.Cleared += OnSurfacePackCleared;
         world.AddChild(pack);

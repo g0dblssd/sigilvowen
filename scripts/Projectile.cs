@@ -10,12 +10,15 @@ public partial class Projectile : Area3D
     public float Speed = 18f;
     public float Life = 2f;
     public int ChainLeft;
+    public string SkillId = "fireball";
     private MeshInstance3D? _mesh;
     private float _age;
     private bool _hit;
+    private float _trailTimer;
 
-    public void Configure(float damage, Vector3 direction, ResolvedCast? resolved)
+    public void Configure(string skillId, float damage, Vector3 direction, ResolvedCast? resolved)
     {
+        SkillId = skillId;
         Damage = damage;
         Direction = direction.Normalized();
         Resolved = resolved;
@@ -29,17 +32,26 @@ public partial class Projectile : Area3D
         CollisionLayer = PhysicsLayers.PlayerProjectile;
         CollisionMask = PhysicsLayers.Enemy;
 
+        DamageElement element = Resolved?.Element ?? DamageElement.Fire;
+        Color color = SkillVfx.ElementColor(element);
         var mat = new StandardMaterial3D
         {
-            AlbedoColor = new Color(1f, 0.8f, 0.3f),
+            AlbedoColor = color,
             EmissionEnabled = true,
-            Emission = new Color(1f, 0.6f, 0.1f),
-            EmissionEnergyMultiplier = 2f,
+            Emission = color,
+            EmissionEnergyMultiplier = 4f,
         };
-        _mesh = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.25f, Height = 0.5f } };
+        PrimitiveMesh projectileMesh = SkillId switch
+        {
+            "frostbolt" => new PrismMesh { Size = new Vector3(0.32f, 0.32f, 0.8f) },
+            "stone_shot" => new BoxMesh { Size = new Vector3(0.42f, 0.42f, 0.64f) },
+            "venom_fang" => new SphereMesh { Radius = 0.22f, Height = 0.62f },
+            _ => new SphereMesh { Radius = 0.25f, Height = 0.5f },
+        };
+        _mesh = new MeshInstance3D { Mesh = projectileMesh };
         _mesh.SetSurfaceOverrideMaterial(0, mat);
         AddChild(_mesh);
-        var light = new OmniLight3D { LightColor = mat.Emission, LightEnergy = 1.4f, OmniRange = 3.5f };
+        var light = new OmniLight3D { LightColor = color, LightEnergy = 1.4f, OmniRange = 3.5f };
         AddChild(light);
         if (Resolved != null && Resolved.HasLightningInfusion)
         {
@@ -59,6 +71,16 @@ public partial class Projectile : Area3D
     public override void _PhysicsProcess(double delta)
     {
         _age += (float)delta;
+        _trailTimer -= (float)delta;
+        if (_trailTimer <= 0f)
+        {
+            _trailTimer = 0.045f;
+            Node? scene = GetTree().CurrentScene;
+            if (scene != null)
+            {
+                SkillVfx.SpawnProjectileTrail(scene, GlobalPosition, Resolved?.Element ?? DamageElement.Fire, Resolved?.AppliedLinks.Count > 0);
+            }
+        }
         if (_mesh != null)
         {
             float pulse = 0.9f + Mathf.Sin(_age * 18f) * 0.22f;
@@ -87,13 +109,10 @@ public partial class Projectile : Area3D
         _hit = true;
         var element = Resolved != null ? Resolved.Element : DamageElement.Fire;
         e.TakeDamage(Damage, element, Resolved);
-        if (Resolved != null && Resolved.HasLightningInfusion)
+        Node? scene = GetTree().CurrentScene;
+        if (Resolved != null && scene != null)
         {
-            var scene = GetTree().CurrentScene;
-            if (scene != null)
-            {
-                SkillVfx.SpawnLightningArcs(scene, GlobalPosition, 4);
-            }
+            SkillVfx.SpawnProjectileImpact(scene, SkillId, GlobalPosition, Resolved);
         }
         if (ChainLeft > 0)
         {
@@ -106,6 +125,11 @@ public partial class Projectile : Area3D
                     if (other.GlobalPosition.DistanceTo(GlobalPosition) < 5f)
                     {
                         other.TakeDamage(Damage * 0.7f, element, Resolved);
+                        if (scene != null)
+                        {
+                            SkillVfx.SpawnBeam(scene, GlobalPosition, other.GlobalPosition + Vector3.Up, element, 0.1f);
+                            if (Resolved != null) SkillVfx.SpawnLinkLayers(scene, other.GlobalPosition, Resolved);
+                        }
                         ChainLeft--;
                         if (ChainLeft <= 0)
                         {

@@ -37,8 +37,8 @@ public partial class DungeonController : Node
             AnchorRight = 1f,
             OffsetLeft = -330f,
             OffsetRight = -18f,
-            OffsetTop = 20f,
-            OffsetBottom = 230f,
+            OffsetTop = 252f,
+            OffsetBottom = 462f,
         };
         layer.AddChild(panel);
 
@@ -51,7 +51,7 @@ public partial class DungeonController : Node
 
         var description = new Label
         {
-            Text = "Descend through 3 floors of enemy packs, defeat the guardian, earn a Link and Skill.",
+            Text = "Descend through 3 randomized high-density floors, break the hordes, defeat the guardian, earn a Link and Skill.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
         description.CustomMinimumSize = new Vector2(285f, 54f);
@@ -95,23 +95,22 @@ public partial class DungeonController : Node
             return;
         }
 
-        int packCount = 2 + _currentFloor;
-        int membersPerPack = 3 + _currentFloor;
+        int packCount = 4 + _currentFloor;
         float baseHp = 70f + _currentFloor * 24f + (_runNumber - 1) * 18f;
-        float radius = 15f + _currentFloor * 3f;
         _packsRemaining = packCount;
 
         for (int packIndex = 0; packIndex < packCount; packIndex++)
         {
-            float angle = Mathf.Tau * packIndex / packCount + _currentFloor * 0.31f;
-            var position = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+            int membersPerPack = GD.RandRange(6 + _currentFloor, 9 + _currentFloor * 2);
+            Vector3 position = RollHordePosition(packIndex, packCount);
             var archetypes = new EnemyArchetype[membersPerPack];
             for (int memberIndex = 0; memberIndex < membersPerPack; memberIndex++)
             {
-                archetypes[memberIndex] = ((packIndex + memberIndex + _currentFloor) % 4) switch
+                float roll = GD.Randf();
+                archetypes[memberIndex] = roll switch
                 {
-                    0 => EnemyArchetype.Brute,
-                    1 => EnemyArchetype.Hexer,
+                    < 0.2f => EnemyArchetype.Brute,
+                    < 0.38f => EnemyArchetype.Hexer,
                     _ => EnemyArchetype.Raider,
                 };
             }
@@ -124,7 +123,17 @@ public partial class DungeonController : Node
         {
             _statusLabel.Text = $"Floor {_currentFloor}/{MaxFloors}: {_packsRemaining} packs remain.";
         }
-        GD.Print($"[Raid] Run {_runNumber}, floor {_currentFloor}: {packCount} packs, {membersPerPack} enemies each.");
+        GD.Print($"[Raid] Run {_runNumber}, floor {_currentFloor}: {packCount} randomized high-density hordes.");
+    }
+
+    private Vector3 RollHordePosition(int index, int count)
+    {
+        // A stratified random angle prevents overlaps without recreating the old
+        // perfectly even encounter ring. Radius and lateral jitter change per run.
+        float sector = Mathf.Tau / count;
+        float angle = sector * index + (float)GD.RandRange(-sector * 0.42f, sector * 0.42f);
+        float radius = (float)GD.RandRange(18f, 51f);
+        return new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
     }
 
     private void SpawnPack(string name, Vector3 position, float baseHp, EnemyArchetype[] archetypes)
@@ -134,11 +143,14 @@ public partial class DungeonController : Node
             return;
         }
         var pack = new MobPack();
-        pack.Setup(_player, name, 5.2f);
+        pack.Setup(_player, name, 10.5f, false);
         for (int i = 0; i < archetypes.Length; i++)
         {
-            float angle = Mathf.Tau * i / archetypes.Length;
-            pack.AddMember(baseHp, archetypes[i], new Vector3(Mathf.Cos(angle) * 1.7f, 0f, Mathf.Sin(angle) * 1.7f));
+            float angle = GD.Randf() * Mathf.Tau;
+            float scatter = Mathf.Sqrt(GD.Randf()) * (float)GD.RandRange(2.5f, 6.5f);
+            EliteModifier elite = i == 0 || (i > 2 && GD.Randf() < 0.1f) ? Enemy.RollEliteModifier() : EliteModifier.None;
+            Vector3 offset = new(Mathf.Cos(angle) * scatter, 0f, Mathf.Sin(angle) * scatter);
+            pack.AddMember(baseHp * (float)GD.RandRange(0.9f, 1.12f), archetypes[i], offset, elite);
         }
         pack.Cleared += OnDungeonPackCleared;
         _world.AddChild(pack);

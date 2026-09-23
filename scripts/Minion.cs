@@ -9,6 +9,7 @@ public partial class Minion : CharacterBody3D
     private Node3D? _followTarget;
     private float _attackCooldown;
     private MeshInstance3D? _mesh;
+    private float _lifeLeft;
 
     private const float Speed = 5f;
     private const float AttackRange = 2.6f;
@@ -19,6 +20,7 @@ public partial class Minion : CharacterBody3D
         _skill = skill;
         _resolved = resolved;
         _followTarget = followTarget;
+        _lifeLeft = 22f * resolved.DurationMultiplier;
     }
 
     public override void _Ready()
@@ -70,6 +72,12 @@ public partial class Minion : CharacterBody3D
 
     public override void _PhysicsProcess(double delta)
     {
+        _lifeLeft -= (float)delta;
+        if (_lifeLeft <= 0f)
+        {
+            QueueFree();
+            return;
+        }
         if (_followTarget == null || _skill == null || _resolved == null)
         {
             return;
@@ -163,5 +171,10 @@ public partial class Minion : CharacterBody3D
         }
         // Lightning-form strike: lightning damage + 50% stun handled in TakeDamage.
         enemy.TakeDamage(_resolved.Damage, _resolved.Element, _resolved);
+        Node? scene = GetTree().CurrentScene;
+        if (scene != null)
+        {
+            SkillVfx.SpawnProjectileImpact(scene, _skill?.Id ?? "summon", enemy.GlobalPosition + Vector3.Up, _resolved);
+        }
     }
 }

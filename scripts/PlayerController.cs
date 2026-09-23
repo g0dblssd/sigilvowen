@@ -11,18 +11,23 @@ public partial class PlayerController : CharacterBody3D
     private Camera3D? _camera;
     public SkillCaster? Caster { get; private set; }
     public PlayerProgression Progression { get; } = new();
+    public PlayerInventory Inventory { get; } = new();
     private LinkMenuUI? _menu;
     private PassiveTreeUI? _passiveTree;
-    private Label? _statusLabel;
-    private Label? _healthLabel;
-    private Label? _manaLabel;
-    private Label? _combatMessage;
-    private Label? _objectiveLabel;
-    private Label? _progressionLabel;
-    private ProgressBar? _healthBar;
-    private ProgressBar? _manaBar;
+    private InventoryUI? _inventoryUi;
+    private GameHud? _hud;
     private StandardMaterial3D? _bodyMaterial;
     private MeshInstance3D? _bodyMesh;
+    private Node3D? _visualRoot;
+    private float _visualTime;
+    private readonly Color _bodyBaseColor = new(0.72f, 0.82f, 0.9f);
+    private AnimationPlayer? _characterAnimator;
+    private string _currentAnimation = "";
+    private float _actionAnimationLeft;
+    private bool _usesImportedModel;
+    private bool _isDead;
+    private bool _preGameLocked = true;
+    private Vector3 _visualBaseScale = Vector3.One;
     private Vector3? _moveTarget;
     private float _stunLeft;
     private float _damageDebuffLeft;
@@ -31,33 +36,40 @@ public partial class PlayerController : CharacterBody3D
     private float _hasteLeft;
     private float _stoneSkinLeft;
     private float _frostArmorLeft;
+    private float _flaskCooldownLeft;
+    private float _flaskHealLeft;
+    private float _flaskHealPerSecond;
 
     public const float BaseMaxHealth = 150f;
     public const float BaseMaxMana = 100f;
-    public float MaxHealth => BaseMaxHealth + Progression.HealthBonus;
-    public float MaxMana => BaseMaxMana + Progression.ManaBonus;
+    public float MaxHealth => BaseMaxHealth + Progression.HealthBonus + Inventory.HealthBonus;
+    public float MaxMana => BaseMaxMana + Progression.ManaBonus + Inventory.ManaBonus;
     public float Health { get; private set; } = BaseMaxHealth;
     public float Mana { get; private set; } = BaseMaxMana;
+    public const int MaxFlaskCharges = 30;
+    public const int FlaskChargeCost = 10;
+    public int FlaskCharges { get; private set; } = MaxFlaskCharges;
+    public bool CanUseFlask => FlaskCharges >= FlaskChargeCost && _flaskCooldownLeft <= 0f && Health > 0f && Health < MaxHealth;
 
-    public float DamageMultiplier => (_damageDebuffLeft > 0f ? 0.7f : 1f) * Progression.DamageMultiplier;
+    public float DamageMultiplier => (_damageDebuffLeft > 0f ? 0.7f : 1f) * Progression.DamageMultiplier * (1f + Inventory.DamagePercent / 100f);
+    public float CooldownMultiplier => Progression.CooldownMultiplier * (1f - Inventory.CooldownReduction / 100f);
     public bool IsBirthLocked => _stunLeft > 0f;
     public bool IsControlLocked => _ritualLockLeft > 0f;
-    public bool IsGameplayInputLocked => IsControlLocked || (_menu?.IsOpen() ?? false) || (_passiveTree?.IsOpen() ?? false);
+    public bool IsGameplayInputLocked => _preGameLocked || _isDead || IsControlLocked || (_menu?.IsOpen() ?? false) || (_passiveTree?.IsOpen() ?? false) || (_inventoryUi?.IsOpen() ?? false);
 
     public override void _Ready()
     {
+        AddToGroup("player");
         CollisionLayer = PhysicsLayers.Player;
         CollisionMask = PhysicsLayers.World | PhysicsLayers.Enemy;
         AddChild(Progression);
+        AddChild(Inventory);
+        Inventory.Changed += OnEquipmentChanged;
         Health = MaxHealth;
         Mana = MaxMana;
         Progression.Changed += UpdateProgressionHud;
 
-        _bodyMaterial = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.6f, 1f), EmissionEnabled = true, Emission = new Color(0.05f, 0.15f, 0.35f), EmissionEnergyMultiplier = 0.5f };
-        _bodyMesh = new MeshInstance3D { Mesh = new CapsuleMesh { Radius = 0.4f, Height = 1.6f } };
-        _bodyMesh.SetSurfaceOverrideMaterial(0, _bodyMaterial);
-        _bodyMesh.Position = new Vector3(0, 1f, 0);
-        AddChild(_bodyMesh);
+        BuildHeroVisual();
 
         var col = new CollisionShape3D { Shape = new CapsuleShape3D { Radius = 0.4f, Height = 1.6f } };
         col.Position = new Vector3(0, 1f, 0);
@@ -87,56 +99,11 @@ public partial class PlayerController : CharacterBody3D
         _passiveTree.Setup(Progression);
         AddChild(_passiveTree);
 
-        var layer = new CanvasLayer();
-        layer.Layer = 5;
-        AddChild(layer);
-        var hudBack = new ColorRect
-        {
-            Position = new Vector2(8, 7),
-            Size = new Vector2(430, 236),
-            Color = new Color(0.015f, 0.025f, 0.07f, 0.78f),
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-        };
-        layer.AddChild(hudBack);
-        var title = new Label
-        {
-            Text = "SIGILWOVEN  //  AETHER ARENA",
-            Position = new Vector2(20, 12),
-            Modulate = new Color(0.35f, 0.85f, 1f),
-        };
-        title.AddThemeFontSizeOverride("font_size", 16);
-        layer.AddChild(title);
-        var hint = new Label();
-        hint.Text = "Hold LMB move | 1-6, Z/X/C/V cast | L links | P passives | Esc close";
-        hint.Position = new Vector2(20, 36);
-        hint.Modulate = new Color(0.72f, 0.78f, 0.9f);
-        hint.AddThemeFontSizeOverride("font_size", 12);
-        layer.AddChild(hint);
+        _inventoryUi = new InventoryUI(Inventory);
+        AddChild(_inventoryUi);
 
-        _statusLabel = new Label();
-        _statusLabel.Position = new Vector2(20, 61);
-        _statusLabel.Modulate = new Color(0.95f, 0.9f, 0.55f);
-        _statusLabel.AddThemeFontSizeOverride("font_size", 13);
-        _statusLabel.Text = "slot 1";
-        layer.AddChild(_statusLabel);
-
-        _healthLabel = new Label { Position = new Vector2(20, 88), Modulate = new Color(1f, 0.45f, 0.45f) };
-        layer.AddChild(_healthLabel);
-        _healthBar = new ProgressBar { Position = new Vector2(115, 88), Size = new Vector2(295, 16), MaxValue = MaxHealth, ShowPercentage = false };
-        layer.AddChild(_healthBar);
-        _manaLabel = new Label { Position = new Vector2(20, 114), Modulate = new Color(0.45f, 0.75f, 1f) };
-        layer.AddChild(_manaLabel);
-        _manaBar = new ProgressBar { Position = new Vector2(115, 114), Size = new Vector2(295, 16), MaxValue = MaxMana, ShowPercentage = false };
-        layer.AddChild(_manaBar);
-        _combatMessage = new Label { Position = new Vector2(20, 143), Modulate = new Color(1f, 0.8f, 0.35f) };
-        layer.AddChild(_combatMessage);
-        _objectiveLabel = new Label { Position = new Vector2(20, 171), Modulate = new Color(0.48f, 0.9f, 1f) };
-        _objectiveLabel.AddThemeFontSizeOverride("font_size", 13);
-        _objectiveLabel.Text = "OBJECTIVE  //  AWAKEN";
-        layer.AddChild(_objectiveLabel);
-        _progressionLabel = new Label { Position = new Vector2(20, 199), Modulate = new Color(0.82f, 0.72f, 1f) };
-        _progressionLabel.AddThemeFontSizeOverride("font_size", 12);
-        layer.AddChild(_progressionLabel);
+        _hud = new GameHud(this, Caster);
+        AddChild(_hud);
         UpdateProgressionHud();
         UpdateHud();
 
@@ -151,6 +118,15 @@ public partial class PlayerController : CharacterBody3D
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (@event is InputEventKey inventoryKey && inventoryKey.Pressed && !inventoryKey.Echo && inventoryKey.Keycode == Key.I)
+        {
+            if ((_inventoryUi?.IsOpen() ?? false) || (!(_menu?.IsOpen() ?? false) && !(_passiveTree?.IsOpen() ?? false) && !IsControlLocked))
+            {
+                _inventoryUi?.Toggle();
+                GetViewport().SetInputAsHandled();
+            }
+            return;
+        }
         if (IsGameplayInputLocked)
         {
             return;
@@ -163,6 +139,18 @@ public partial class PlayerController : CharacterBody3D
         }
         if (@event is InputEventKey key && key.Pressed && !key.Echo && Caster != null)
         {
+            if (key.Keycode == Key.F)
+            {
+                TryPickupNearbyLoot();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+            if (key.Keycode == Key.Q)
+            {
+                TryUseLifeFlask();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
             int slot = key.Keycode switch
             {
                 Key.Key1 => 0,
@@ -187,13 +175,6 @@ public partial class PlayerController : CharacterBody3D
 
     public override void _Process(double delta)
     {
-        if (_statusLabel != null && Caster != null)
-        {
-            string ritualState = IsControlLocked ? $" | RITUAL {Mathf.Ceil(_ritualLockLeft)}s" : "";
-            string birthState = IsBirthLocked ? $" | STUN {Mathf.Ceil(_stunLeft)}s" : "";
-            string debuffState = _damageDebuffLeft > 0f ? " | damage -30%" : "";
-            _statusLabel.Text = Caster.GetSelectedName() + ritualState + birthState + debuffState;
-        }
         float step = (float)delta;
         _stunLeft = Mathf.Max(0f, _stunLeft - step);
         _damageDebuffLeft = Mathf.Max(0f, _damageDebuffLeft - (float)delta);
@@ -202,6 +183,14 @@ public partial class PlayerController : CharacterBody3D
         _hasteLeft = Mathf.Max(0f, _hasteLeft - step);
         _stoneSkinLeft = Mathf.Max(0f, _stoneSkinLeft - step);
         _frostArmorLeft = Mathf.Max(0f, _frostArmorLeft - step);
+        _flaskCooldownLeft = Mathf.Max(0f, _flaskCooldownLeft - step);
+        _actionAnimationLeft = Mathf.Max(0f, _actionAnimationLeft - step);
+        if (_flaskHealLeft > 0f)
+        {
+            float healingStep = Mathf.Min(step, _flaskHealLeft);
+            Health = Mathf.Min(MaxHealth, Health + _flaskHealPerSecond * healingStep);
+            _flaskHealLeft -= healingStep;
+        }
         Mana = Mathf.Min(MaxMana, Mana + 8f * step);
         UpdateHud();
     }
@@ -255,7 +244,158 @@ public partial class PlayerController : CharacterBody3D
         }
 
         UpdateFixedCamera();
+        AnimateHero((float)delta, worldDir.LengthSquared() > 0.01f);
 
+    }
+
+    private void BuildHeroVisual()
+    {
+        _visualRoot = new Node3D();
+        AddChild(_visualRoot);
+
+        if (TryBuildImportedHero())
+        {
+            return;
+        }
+
+        Color classAccent = Progression.HeroClass switch
+        {
+            HeroClass.Aetherist => new Color(0.55f, 0.24f, 1f),
+            HeroClass.Warden => new Color(0.2f, 0.9f, 0.58f),
+            _ => new Color(0.1f, 0.72f, 1f),
+        };
+        _bodyMaterial = new StandardMaterial3D
+        {
+            AlbedoColor = _bodyBaseColor,
+            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/hero_runebound_armor-v1.png"),
+            Metallic = 0.65f,
+            Roughness = 0.42f,
+            EmissionEnabled = true,
+            Emission = classAccent * 0.35f,
+            EmissionEnergyMultiplier = 0.8f,
+            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
+        };
+        var darkMetal = new StandardMaterial3D { AlbedoColor = new Color(0.055f, 0.07f, 0.1f), Metallic = 0.85f, Roughness = 0.3f };
+        var runeMaterial = new StandardMaterial3D { AlbedoColor = classAccent, EmissionEnabled = true, Emission = classAccent, EmissionEnergyMultiplier = 3.2f, Metallic = 0.35f };
+
+        _bodyMesh = AddVisualPart(_visualRoot, new BoxMesh { Size = new Vector3(0.72f, 0.82f, 0.42f) }, _bodyMaterial, new Vector3(0f, 1.15f, 0f));
+        AddVisualPart(_visualRoot, new BoxMesh { Size = new Vector3(0.58f, 0.3f, 0.38f) }, darkMetal, new Vector3(0f, 0.66f, 0f));
+        AddVisualPart(_visualRoot, new SphereMesh { Radius = 0.27f, Height = 0.54f }, _bodyMaterial, new Vector3(0f, 1.82f, 0f));
+        AddVisualPart(_visualRoot, new CylinderMesh { TopRadius = 0.22f, BottomRadius = 0.29f, Height = 0.22f }, darkMetal, new Vector3(0f, 2.02f, 0f));
+
+        foreach (float side in new[] { -1f, 1f })
+        {
+            AddVisualPart(_visualRoot, new SphereMesh { Radius = 0.24f, Height = 0.34f }, _bodyMaterial, new Vector3(side * 0.47f, 1.45f, 0f), new Vector3(1.18f, 0.72f, 1f));
+            AddVisualPart(_visualRoot, new CylinderMesh { TopRadius = 0.1f, BottomRadius = 0.12f, Height = 0.62f }, darkMetal, new Vector3(side * 0.48f, 1.05f, 0f), new Vector3(0f, 0f, side * -0.12f));
+            AddVisualPart(_visualRoot, new CylinderMesh { TopRadius = 0.13f, BottomRadius = 0.16f, Height = 0.68f }, darkMetal, new Vector3(side * 0.2f, 0.3f, 0f));
+        }
+        AddVisualPart(_visualRoot, new BoxMesh { Size = new Vector3(0.08f, 0.52f, 0.05f) }, runeMaterial, new Vector3(0f, 1.2f, -0.225f));
+        AddVisualPart(_visualRoot, new BoxMesh { Size = new Vector3(0.15f, 1.35f, 0.09f) }, darkMetal, new Vector3(0.62f, 1.05f, 0.12f), new Vector3(0f, 0f, -0.35f));
+        AddVisualPart(_visualRoot, new BoxMesh { Size = new Vector3(0.075f, 1.08f, 0.035f) }, runeMaterial, new Vector3(0.615f, 1.18f, 0.065f), new Vector3(0f, 0f, -0.35f));
+    }
+
+    private bool TryBuildImportedHero()
+    {
+        if (_visualRoot == null)
+        {
+            return false;
+        }
+        PackedScene? characterScene = GD.Load<PackedScene>("res://assets/models/quaternius_knight/KnightCharacter.fbx");
+        if (characterScene?.Instantiate() is not Node3D character)
+        {
+            return false;
+        }
+        // Align the centimetre-scaled FBX with the player's gameplay capsule.
+        _visualBaseScale = Vector3.One * 0.27f;
+        _visualRoot.Scale = _visualBaseScale;
+        _visualRoot.AddChild(character);
+        _characterAnimator = character.GetNodeOrNull<AnimationPlayer>("AnimationPlayer");
+        Skeleton3D? skeleton = character.GetNodeOrNull<Skeleton3D>("HumanArmature/Skeleton3D");
+        PackedScene? swordScene = GD.Load<PackedScene>("res://assets/models/quaternius_knight/Sword.fbx");
+        if (skeleton != null && swordScene?.Instantiate() is Node3D sword)
+        {
+            var attachment = new BoneAttachment3D { BoneName = "Palm.R" };
+            skeleton.AddChild(attachment);
+            attachment.AddChild(sword);
+            // Both FBX files carry a centimetre-to-metre x100 transform. The
+            // sword is already under the character armature, so cancel its
+            // second conversion to avoid a 100x weapon on the hand bone.
+            sword.Scale = Vector3.One * 0.01f;
+            sword.RotationDegrees = new Vector3(0f, 0f, 90f);
+        }
+        if (_characterAnimator == null)
+        {
+            character.QueueFree();
+            _visualRoot.Scale = Vector3.One;
+            return false;
+        }
+        SetAnimationLoop("HumanArmature|Idle_swordRight");
+        SetAnimationLoop("HumanArmature|Run_swordRight");
+        SetAnimationLoop("HumanArmature|Walking");
+        _usesImportedModel = true;
+        PlayCharacterAnimation("HumanArmature|Idle_swordRight", true);
+        GD.Print("[Player] CC0 animated knight loaded with skeletal animation.");
+        return true;
+    }
+
+    private void SetAnimationLoop(string animationName)
+    {
+        if (_characterAnimator?.GetAnimation(animationName) is Animation animation)
+        {
+            animation.LoopMode = Animation.LoopModeEnum.Linear;
+        }
+    }
+
+    private void PlayCharacterAnimation(string animationName, bool force = false)
+    {
+        if (_characterAnimator == null || (!force && _currentAnimation == animationName))
+        {
+            return;
+        }
+        _currentAnimation = animationName;
+        _characterAnimator.Play(animationName, 0.12f);
+    }
+
+    public void PlayCastAnimation()
+    {
+        if (!_usesImportedModel || _isDead) return;
+        _actionAnimationLeft = 0.72f;
+        PlayCharacterAnimation("HumanArmature|Run_swordAttack", true);
+    }
+
+    public void ConfirmClassSelection(HeroClass heroClass)
+    {
+        Progression.ChooseClassForRun(heroClass);
+        Health = MaxHealth;
+        Mana = MaxMana;
+        _preGameLocked = false;
+        _hud?.RefreshProgression();
+        ShowCombatMessage($"{heroClass.ToString().ToUpperInvariant()} PATH BOUND");
+    }
+
+    private static MeshInstance3D AddVisualPart(Node3D parent, PrimitiveMesh mesh, Material material, Vector3 position, Vector3? rotation = null, Vector3? scale = null)
+    {
+        var part = new MeshInstance3D { Mesh = mesh, Position = position, Rotation = rotation ?? Vector3.Zero, Scale = scale ?? Vector3.One };
+        part.SetSurfaceOverrideMaterial(0, material);
+        parent.AddChild(part);
+        return part;
+    }
+
+    private void AnimateHero(float delta, bool moving)
+    {
+        if (_visualRoot == null) return;
+        if (_usesImportedModel)
+        {
+            if (!_isDead && _actionAnimationLeft <= 0f)
+            {
+                PlayCharacterAnimation(moving ? "HumanArmature|Run_swordRight" : "HumanArmature|Idle_swordRight");
+            }
+            return;
+        }
+        _visualTime += delta;
+        float stride = moving ? Mathf.Sin(_visualTime * 10f) : Mathf.Sin(_visualTime * 2f) * 0.15f;
+        _visualRoot.Position = new Vector3(0f, Mathf.Abs(stride) * (moving ? 0.055f : 0.018f), 0f);
+        _visualRoot.Rotation = new Vector3(0f, 0f, stride * (moving ? 0.035f : 0.012f));
     }
 
     private bool IsPointerOverBlockingUi()
@@ -270,15 +410,15 @@ public partial class PlayerController : CharacterBody3D
         _damageDebuffLeft = damageDebuffSeconds;
         _ritualLockLeft = damageDebuffSeconds;
         _moveTarget = null;
-        if (_bodyMesh == null)
+        if (_visualRoot == null)
         {
             return;
         }
-        _bodyMesh.Scale = Vector3.One * 0.05f;
+        _visualRoot.Scale = _visualBaseScale * 0.05f;
         var tween = CreateTween();
         tween.SetTrans(Tween.TransitionType.Cubic);
         tween.SetEase(Tween.EaseType.Out);
-        tween.TweenProperty(_bodyMesh, "scale", Vector3.One, 5.0f);
+        tween.TweenProperty(_visualRoot, "scale", _visualBaseScale, 5.0f);
     }
 
     private void UpdateFixedCamera()
@@ -309,6 +449,67 @@ public partial class PlayerController : CharacterBody3D
         ShowCombatMessage($"AETHER +{(int)amount}");
     }
 
+    public void RechargeFlask(int charges)
+    {
+        if (charges <= 0)
+        {
+            return;
+        }
+        FlaskCharges = Mathf.Min(MaxFlaskCharges, FlaskCharges + charges);
+    }
+
+    private void TryPickupNearbyLoot()
+    {
+        LootDrop? nearest = null;
+        float nearestDistance = 3.6f;
+        foreach (Node node in GetTree().GetNodesInGroup("loot"))
+        {
+            if (node is not LootDrop drop || !IsInstanceValid(drop))
+            {
+                continue;
+            }
+            if (!Inventory.ShouldShow(drop.Item))
+            {
+                continue;
+            }
+            float distance = GlobalPosition.DistanceTo(drop.GlobalPosition);
+            if (distance < nearestDistance)
+            {
+                nearest = drop;
+                nearestDistance = distance;
+            }
+        }
+        if (nearest == null)
+        {
+            ShowCombatMessage("NO LOOT IN REACH");
+            return;
+        }
+        nearest.Collect(this);
+    }
+
+    private void OnEquipmentChanged()
+    {
+        Health = Mathf.Min(Health, MaxHealth);
+        Mana = Mathf.Min(Mana, MaxMana);
+        ShowCombatMessage(Inventory.BuildEquipmentSummary());
+    }
+
+    private void TryUseLifeFlask()
+    {
+        if (!CanUseFlask)
+        {
+            ShowCombatMessage(Health >= MaxHealth ? "LIFE ALREADY FULL" : FlaskCharges < FlaskChargeCost ? "LIFE FLASK HAS NO CHARGES" : "LIFE FLASK RECHARGING");
+            return;
+        }
+        FlaskCharges -= FlaskChargeCost;
+        _flaskCooldownLeft = 0.65f;
+        Health = Mathf.Min(MaxHealth, Health + MaxHealth * 0.28f);
+        _flaskHealLeft = 2.5f;
+        _flaskHealPerSecond = MaxHealth * 0.18f / _flaskHealLeft;
+        ShowCombatMessage("LIFE FLASK — RESTORING 46% HEALTH");
+        FlashBody(new Color(1f, 0.16f, 0.22f));
+    }
+
     public void TakeDamage(float amount, string source = "Enemy")
     {
         if (_invulnerableLeft > 0f || Health <= 0f || float.IsNaN(amount) || float.IsInfinity(amount))
@@ -323,7 +524,7 @@ public partial class PlayerController : CharacterBody3D
         FlashBody(new Color(1f, 0.08f, 0.08f));
         if (Health <= 0f)
         {
-            RespawnAtTotem();
+            BeginDeath();
         }
     }
 
@@ -340,6 +541,11 @@ public partial class PlayerController : CharacterBody3D
 
     public void DashTo(Vector3 destination)
     {
+        if (_usesImportedModel)
+        {
+            _actionAnimationLeft = 0.8f;
+            PlayCharacterAnimation("HumanArmature|Roll_sword", true);
+        }
         GlobalPosition = destination;
         _moveTarget = null;
         FlashBody(new Color(1f, 0.35f, 0.08f));
@@ -347,43 +553,41 @@ public partial class PlayerController : CharacterBody3D
 
     public void ShowCombatMessage(string text)
     {
-        if (_combatMessage != null)
-        {
-            _combatMessage.Text = text;
-        }
+        _hud?.ShowCombatMessage(text);
     }
 
     public void SetObjectiveStatus(string text)
     {
-        if (_objectiveLabel != null)
-        {
-            _objectiveLabel.Text = $"OBJECTIVE  //  {text}";
-        }
+        _hud?.SetObjective(text);
     }
 
     private void UpdateProgressionHud()
     {
-        if (_progressionLabel == null)
-        {
-            return;
-        }
-        if (Progression.Level < PlayerProgression.MaxLevel)
-        {
-            _progressionLabel.Text = $"{Progression.HeroClass.ToString().ToUpperInvariant()}  •  LV {Progression.Level}/{PlayerProgression.MaxLevel}  •  XP {Progression.Experience}/{Progression.ExperienceToNextLevel}  •  PASSIVE {Progression.PassivePoints}";
-        }
-        else
-        {
-            _progressionLabel.Text = $"LV 300  •  PARAGON {Progression.ParagonLevel}  •  XP {Progression.ParagonExperience}/{Progression.ExperienceToNextParagon}  •  POINTS {Progression.ParagonPoints}";
-        }
+        _hud?.RefreshProgression();
+    }
+
+    private void BeginDeath()
+    {
+        if (_isDead) return;
+        _isDead = true;
+        _moveTarget = null;
+        PlayCharacterAnimation("HumanArmature|Death", true);
+        ShowCombatMessage("FALLEN — THE TOTEM CALLS YOU BACK");
+        GetTree().CreateTimer(1.45f).Timeout += RespawnAtTotem;
     }
 
     private void RespawnAtTotem()
     {
         Health = MaxHealth;
         Mana = MaxMana;
+        FlaskCharges = MaxFlaskCharges;
+        _flaskHealLeft = 0f;
         GlobalPosition = new Vector3(0f, 0.2f, 0f);
         _moveTarget = null;
         _invulnerableLeft = 2.5f;
+        _isDead = false;
+        _actionAnimationLeft = 0f;
+        PlayCharacterAnimation("HumanArmature|Idle_swordRight", true);
         ShowCombatMessage("REBORN AT THE TOTEM — 2s WARD");
         FlashBody(new Color(0.2f, 0.85f, 1f));
     }
@@ -396,23 +600,20 @@ public partial class PlayerController : CharacterBody3D
         }
         _bodyMaterial.AlbedoColor = flash;
         var tween = CreateTween();
-        tween.TweenProperty(_bodyMaterial, "albedo_color", new Color(0.3f, 0.6f, 1f), 0.18f);
+        tween.TweenProperty(_bodyMaterial, "albedo_color", _bodyBaseColor, 0.18f);
     }
 
     private void UpdateHud()
     {
-        if (_healthBar != null)
-        {
-            _healthBar.MaxValue = MaxHealth;
-            _healthBar.Value = Health;
-        }
-        if (_manaBar != null)
-        {
-            _manaBar.MaxValue = MaxMana;
-            _manaBar.Value = Mana;
-        }
-        if (_healthLabel != null) _healthLabel.Text = $"HEALTH  {(int)Health}/{(int)MaxHealth}";
-        if (_manaLabel != null) _manaLabel.Text = $"MANA    {(int)Mana}/{(int)MaxMana}";
+        // GameHud reads live values every frame; retained as a stable update hook.
+    }
+
+    public string GetCombatStatus()
+    {
+        string ritualState = IsControlLocked ? $"  •  RITUAL {Mathf.Ceil(_ritualLockLeft)}s" : "";
+        string birthState = IsBirthLocked ? $"  •  STUN {Mathf.Ceil(_stunLeft)}s" : "";
+        string debuffState = _damageDebuffLeft > 0f ? "  •  DAMAGE -30%" : "";
+        return (Caster?.GetSelectedName() ?? "-") + ritualState + birthState + debuffState;
     }
 
     private Vector3 GetAimPoint()

@@ -13,6 +13,7 @@ public partial class MobPack : Node3D
     private MeshInstance3D? _ring;
     private StandardMaterial3D? _ringMaterial;
     private float _activationRadius = 5f;
+    private bool _showEncounterMarker = true;
     private bool _active;
     private bool _cleared;
 
@@ -22,21 +23,24 @@ public partial class MobPack : Node3D
     public event Action<MobPack>? Activated;
     public event Action<MobPack>? Cleared;
 
-    public void Setup(PlayerController player, string packName, float activationRadius = 5f)
+    public void Setup(PlayerController player, string packName, float activationRadius = 5f, bool showEncounterMarker = true)
     {
         _player = player;
         PackName = packName;
         _activationRadius = activationRadius;
+        _showEncounterMarker = showEncounterMarker;
         if (_label != null)
         {
             _label.Text = $"{PackName}  •  DORMANT";
         }
     }
 
-    public Enemy AddMember(float baseHp, EnemyArchetype archetype, Vector3 localPosition)
+    public Enemy AddMember(float baseHp, EnemyArchetype archetype, Vector3 localPosition, EliteModifier eliteModifier = EliteModifier.None)
     {
         var enemy = new Enemy();
         enemy.Configure(baseHp, false, archetype);
+        enemy.ConfigureElite(eliteModifier);
+        enemy.Aggroed += OnMemberAggroed;
         AddChild(enemy);
         enemy.Position = localPosition;
         _members.Add(enemy);
@@ -45,6 +49,10 @@ public partial class MobPack : Node3D
 
     public override void _Ready()
     {
+        if (!_showEncounterMarker)
+        {
+            return;
+        }
         _ringMaterial = new StandardMaterial3D
         {
             AlbedoColor = new Color(0.5f, 0.12f, 0.16f, 0.72f),
@@ -122,6 +130,11 @@ public partial class MobPack : Node3D
         }
         _player.SetObjectiveStatus($"ENGAGED  •  {PackName}");
         Activated?.Invoke(this);
+    }
+
+    private void OnMemberAggroed(Enemy enemy)
+    {
+        Activate();
     }
 
     private bool HasLivingMembers()

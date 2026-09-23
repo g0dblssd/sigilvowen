@@ -89,6 +89,10 @@ public partial class Main : Node3D
         dungeon.RaidStateChanged += birth.SetPopulationPaused;
         birth.Setup(player, this);
 
+        var classSelection = new ClassSelectionUI(player);
+        classSelection.Confirmed += birth.ConfirmClassChoice;
+        AddChild(classSelection);
+
         GD.Print("[Sigilwoven] World ready.");
     }
 

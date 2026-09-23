@@ -119,6 +119,11 @@ public partial class SkillCaster : Node
         return $"[{SelectedSlot + 1}] {s.Skill.DisplayName} | {s.Skill.ManaCost:0} mana | {s.Links.Count} links | mix {GetLinkCharges(s.Skill)}/{SkillData.MaxLinkCharges} |{cooldownText}";
     }
 
+    public float GetCooldownRemaining(int index)
+    {
+        return index >= 0 && index < _cooldownLeft.Length ? Mathf.Max(0f, _cooldownLeft[index]) : 0f;
+    }
+
     public void SelectAndCast(int index, Vector3 target)
     {
         if (index < 0 || index >= Slots.Count)
@@ -163,6 +168,10 @@ public partial class SkillCaster : Node
         {
             return;
         }
+        if (_ownerPlayer is PlayerController animatedOwner)
+        {
+            animatedOwner.PlayCastAnimation();
+        }
         var resolved = LinkSystem.ResolveCast(slot.Skill, slot.Links);
         if (float.IsNaN(resolved.Damage) || float.IsInfinity(resolved.Damage))
         {
@@ -173,7 +182,7 @@ public partial class SkillCaster : Node
             resolved.Damage *= damageOwner.DamageMultiplier;
         }
         float progressionCooldown = _ownerPlayer is PlayerController progressionOwner
-            ? progressionOwner.Progression.CooldownMultiplier
+            ? progressionOwner.CooldownMultiplier
             : 1f;
         _cooldownLeft[SelectedSlot] = slot.Skill.Cooldown * resolved.CooldownMultiplier * progressionCooldown;
 
@@ -209,6 +218,7 @@ public partial class SkillCaster : Node
                 if (pulseScene != null)
                 {
                     SkillVfx.SpawnCastRing(pulseScene, player.GlobalPosition, DamageElement.Lightning, 0.8f);
+                    SkillVfx.SpawnLinkLayers(pulseScene, player.GlobalPosition, resolved);
                 }
                 player.ShowCombatMessage("AETHER PULSE — no damage");
                 return;
@@ -218,6 +228,7 @@ public partial class SkillCaster : Node
             if (scene != null)
             {
                 SkillVfx.SpawnCastRing(scene, player.GlobalPosition, skill.DamageElement, 1.7f);
+                SkillVfx.SpawnLinkLayers(scene, player.GlobalPosition, resolved);
             }
         }
         GD.Print($"[Caster] Buff cast: {skill.DisplayName}");
@@ -244,6 +255,7 @@ public partial class SkillCaster : Node
             return;
         }
         SkillVfx.SpawnDashTrail(scene, from, destination, resolved.Element, resolved.HasLightningInfusion);
+        SkillVfx.SpawnLinkLayers(scene, destination, resolved);
         player.DashTo(destination);
         foreach (var node in GetTree().GetNodesInGroup("enemies"))
         {
@@ -269,6 +281,7 @@ public partial class SkillCaster : Node
         spawn.Y = 0.2f;
         minion.GlobalPosition = spawn;
         SkillVfx.SpawnSummon(scene, spawn, resolved.Element, resolved.LightningForm);
+        SkillVfx.SpawnLinkLayers(scene, spawn, resolved);
         GD.Print($"[Caster] Summoned {skill.DisplayName} lightningForm={resolved.LightningForm}");
     }
 
@@ -280,8 +293,7 @@ public partial class SkillCaster : Node
             return;
         }
         target.Y = 0.1f;
-        SkillVfx.SpawnImpact(scene, target, resolved.Element, resolved.HasLightningInfusion || resolved.HasStun || resolved.LightningForm);
-        SpawnExplosionVisual(scene, target, resolved.Element);
+        SkillVfx.SpawnSkillImpact(scene, skill, target, resolved);
 
         float radius = 4f;
         foreach (var n in GetTree().GetNodesInGroup("enemies"))
@@ -320,14 +332,11 @@ public partial class SkillCaster : Node
             dir = -_ownerPlayer.GlobalTransform.Basis.Z;
         }
         var proj = new Projectile();
-        proj.Configure(resolved.Damage, dir.Normalized(), resolved);
+        proj.Configure(skill.Id, resolved.Damage, dir.Normalized(), resolved);
         scene.AddChild(proj);
         proj.GlobalPosition = from;
         SkillVfx.SpawnCastRing(scene, from, resolved.Element, 1f);
-        if (resolved.HasLightningInfusion)
-        {
-            SkillVfx.SpawnLightningArcs(scene, from, 3);
-        }
+        SkillVfx.SpawnLinkLayers(scene, from, resolved);
         GD.Print($"[Caster] Projectile {skill.DisplayName} chain={resolved.ChainCount}");
     }
 

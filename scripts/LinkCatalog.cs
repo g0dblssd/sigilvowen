@@ -14,7 +14,7 @@ public static class LinkCatalog
         new SkillLinkData("execution_mark", "Execution Mark", "Hits against enemies under 35% health deal 75% more damage."),
         new SkillLinkData("chain_extension", "Chain Extension", "Shots chain to +2 targets; area hits leave a short burning field."),
         new SkillLinkData("stun_impacts", "Stun Impacts", "Hits gain 50% chance to stun for 0.5s."),
-        new SkillLinkData("persist_aura", "Persist Aura", "Buffs last 80% longer; summons gain +30% lifetime flavor."),
+        new SkillLinkData("persist_aura", "Persist Aura", "Buffs and summons last 80% longer; a persistent aura ring confirms the link."),
         new SkillLinkData("aether_pulse_link", "Aether Pulse Link", "Links the zero-damage spam pulse: cooldown -56%, but final damage -60%."),
     };
 

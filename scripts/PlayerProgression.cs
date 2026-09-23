@@ -249,6 +249,16 @@ public partial class PlayerProgression : Node
         }
     }
 
+    public void ChooseClassForRun(HeroClass heroClass)
+    {
+        if (!Enum.IsDefined(heroClass) || HeroClass == heroClass)
+        {
+            return;
+        }
+        HeroClass = heroClass;
+        CommitChanges();
+    }
+
     private void CommitChanges()
     {
         SaveProgress();

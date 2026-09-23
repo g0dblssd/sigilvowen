@@ -2,6 +2,8 @@
 .mono/
 bin/
 obj/
+build/
+.ci/
 *.tmp
 *.log
 
