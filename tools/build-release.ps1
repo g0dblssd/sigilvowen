@@ -16,9 +16,8 @@ if ($env:GODOT_BIN) {
 $LinuxDir = Join-Path $BuildDir "linux"
 $WindowsDir = Join-Path $BuildDir "windows"
 $PackagesDir = Join-Path $BuildDir "packages"
+Remove-Item $LinuxDir, $WindowsDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $LinuxDir, $WindowsDir, $PackagesDir | Out-Null
-Remove-Item (Join-Path $LinuxDir "Sigilwoven.x86_64"), (Join-Path $WindowsDir "Sigilwoven.exe") -Force -ErrorAction SilentlyContinue
-Remove-Item (Join-Path $LinuxDir "data_Sigilwoven_linuxbsd_x86_64"), (Join-Path $WindowsDir "data_Sigilwoven_windows_x86_64") -Recurse -Force -ErrorAction SilentlyContinue
 
 dotnet build (Join-Path $ProjectDir "Sigilwoven.csproj") --configuration Release
 if ($LASTEXITCODE -ne 0) { throw "C# release build failed." }

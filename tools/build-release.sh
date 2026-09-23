@@ -15,9 +15,11 @@ else
     exit 127
 fi
 
+rm -rf "$BUILD_DIR/linux" "$BUILD_DIR/windows"
 mkdir -p "$BUILD_DIR/linux" "$BUILD_DIR/windows" "$BUILD_DIR/packages"
-rm -f "$BUILD_DIR/linux/Sigilwoven.x86_64" "$BUILD_DIR/windows/Sigilwoven.exe"
-rm -rf "$BUILD_DIR/linux/data_Sigilwoven_linuxbsd_x86_64" "$BUILD_DIR/windows/data_Sigilwoven_windows_x86_64"
+rm -f \
+    "$BUILD_DIR/packages/Sigilwoven-linux-x86_64.tar.gz" \
+    "$BUILD_DIR/packages/Sigilwoven-windows-x86_64.zip"
 
 dotnet build "$PROJECT_DIR/Sigilwoven.csproj" --configuration Release
 "$GODOT" --headless --path "$PROJECT_DIR" --export-release "Linux x86_64" "$BUILD_DIR/linux/Sigilwoven.x86_64"

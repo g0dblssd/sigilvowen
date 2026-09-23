@@ -16,11 +16,20 @@ public partial class PlayerInventory : Node
     public int SigilShards { get; private set; }
     public int SigilCores { get; private set; }
     public ItemRarity MinimumVisibleRarity { get; private set; } = ItemRarity.Common;
+    public HeroClass ActiveClass { get; private set; } = HeroClass.Runeblade;
 
     public float DamagePercent => Sum(ItemStat.DamagePercent);
     public float HealthBonus => Sum(ItemStat.MaxHealth);
     public float ManaBonus => Sum(ItemStat.MaxMana);
     public float CooldownReduction => Mathf.Min(45f, Sum(ItemStat.CooldownReduction));
+    public float Armor => Sum(ItemStat.Armor);
+    public float FireResistance => Mathf.Min(75f, Sum(ItemStat.FireResistance));
+    public float ColdResistance => Mathf.Min(75f, Sum(ItemStat.ColdResistance));
+    public float LightningResistance => Mathf.Min(75f, Sum(ItemStat.LightningResistance));
+    public float PoisonResistance => Mathf.Min(75f, Sum(ItemStat.PoisonResistance));
+    public float CriticalChance => Mathf.Min(65f, 5f + Sum(ItemStat.CriticalChance));
+    public float CriticalDamage => 150f + Sum(ItemStat.CriticalDamage);
+    public float ElementalPenetration => Mathf.Min(60f, Sum(ItemStat.ElementalPenetration));
 
     public override void _Ready()
     {
@@ -40,6 +49,7 @@ public partial class PlayerInventory : Node
 
     public bool Equip(ItemData item)
     {
+        if (!item.CanEquip(ActiveClass)) return false;
         if (!Items.Remove(item))
         {
             return false;
@@ -51,6 +61,63 @@ public partial class PlayerInventory : Node
         Equipped[item.Slot] = item;
         CommitChanges();
         return true;
+    }
+
+    public void SetActiveClass(HeroClass heroClass)
+    {
+        ActiveClass = heroClass;
+        Changed?.Invoke();
+    }
+
+    public bool TrySpendDust(int amount)
+    {
+        if (amount <= 0 || SalvageDust < amount) return false;
+        SalvageDust -= amount;
+        CommitChanges();
+        return true;
+    }
+
+    public void GrantCurrency(int dust = 0, int shards = 0, int cores = 0)
+    {
+        SalvageDust += Mathf.Max(0, dust);
+        SigilShards += Mathf.Max(0, shards);
+        SigilCores += Mathf.Max(0, cores);
+        CommitChanges();
+    }
+
+    public bool Unequip(EquipmentSlot slot)
+    {
+        if (Items.Count >= Capacity || !Equipped.Remove(slot, out ItemData? item)) return false;
+        Items.Add(item);
+        CommitChanges();
+        return true;
+    }
+
+    public void SortInventory()
+    {
+        Items.Sort((left, right) =>
+        {
+            int rarity = right.Rarity.CompareTo(left.Rarity);
+            if (rarity != 0) return rarity;
+            int power = right.GearScore.CompareTo(left.GearScore);
+            return power != 0 ? power : string.Compare(left.Name, right.Name, StringComparison.Ordinal);
+        });
+        CommitChanges();
+    }
+
+    public int SalvageBelowRare()
+    {
+        int salvaged = 0;
+        for (int i = Items.Count - 1; i >= 0; i--)
+        {
+            if (Items[i].Rarity >= ItemRarity.Rare) continue;
+            ItemData item = Items[i];
+            Items.RemoveAt(i);
+            SalvageDust += item.Rarity == ItemRarity.Magic ? 5 : 2;
+            salvaged++;
+        }
+        if (salvaged > 0) CommitChanges();
+        return salvaged;
     }
 
     public bool Salvage(ItemData item)
@@ -89,22 +156,37 @@ public partial class PlayerInventory : Node
 
     public string BuildComparison(ItemData candidate)
     {
+        if (!candidate.CanEquip(ActiveClass)) return $"CLASS LOCKED — {ActiveClass.ToString().ToUpperInvariant()} CANNOT EQUIP {candidate.WeaponType.ToString().ToUpperInvariant()}";
         Equipped.TryGetValue(candidate.Slot, out ItemData? current);
-        string text = current == null ? "EMPTY SLOT — ALL VALUES ARE GAINS" : $"VS {current.Name.ToUpperInvariant()}";
+        float scoreDelta = EstimateCombatValue(candidate) - (current == null ? 0f : EstimateCombatValue(current));
+        string verdict = current == null ? "EMPTY SLOT — PURE UPGRADE" : scoreDelta >= 0f ? $"▲ ESTIMATED BUILD GAIN +{scoreDelta:0.#}" : $"▼ ESTIMATED BUILD LOSS {scoreDelta:0.#}";
+        string text = current == null ? verdict : $"VS {current.Name.ToUpperInvariant()}\n{verdict}";
         foreach (ItemStat stat in Enum.GetValues<ItemStat>())
         {
             float delta = candidate.GetStat(stat) - (current?.GetStat(stat) ?? 0f);
             if (Mathf.Abs(delta) < 0.05f) continue;
             string sign = delta > 0f ? "+" : "";
-            string suffix = stat is ItemStat.DamagePercent or ItemStat.CooldownReduction ? "%" : "";
+            string suffix = stat is ItemStat.DamagePercent or ItemStat.CooldownReduction or ItemStat.FireResistance or ItemStat.ColdResistance or ItemStat.LightningResistance or ItemStat.PoisonResistance or ItemStat.CriticalChance or ItemStat.CriticalDamage or ItemStat.ElementalPenetration ? "%" : "";
             text += $"\n{sign}{delta:0.#}{suffix} {stat}";
         }
         return text;
     }
 
+    private static float EstimateCombatValue(ItemData item)
+    {
+        return item.GetStat(ItemStat.DamagePercent) * 2.2f
+            + item.GetStat(ItemStat.CriticalChance) * 2f
+            + item.GetStat(ItemStat.CriticalDamage) * 0.35f
+            + item.GetStat(ItemStat.CooldownReduction) * 1.6f
+            + item.GetStat(ItemStat.MaxHealth) * 0.12f
+            + item.GetStat(ItemStat.Armor) * 0.08f
+            + (item.GetStat(ItemStat.FireResistance) + item.GetStat(ItemStat.ColdResistance) + item.GetStat(ItemStat.LightningResistance) + item.GetStat(ItemStat.PoisonResistance)) * 0.45f
+            + item.GetStat(ItemStat.ElementalPenetration) * 1.5f;
+    }
+
     public string BuildEquipmentSummary()
     {
-        return $"GEAR  +{DamagePercent:0.#}% DMG  •  +{HealthBonus:0} HP  •  +{ManaBonus:0} MANA  •  +{CooldownReduction:0.#}% CDR     MATERIALS  {SalvageDust} DUST  •  {SigilShards} SHARDS  •  {SigilCores} CORES";
+        return $"GEAR  +{DamagePercent:0.#}% DMG  •  {CriticalChance:0.#}% CRIT  •  {Armor:0} ARMOR  •  +{HealthBonus:0} HP  •  +{CooldownReduction:0.#}% CDR";
     }
 
     private float Sum(ItemStat stat)

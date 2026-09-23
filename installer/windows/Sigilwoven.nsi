@@ -6,6 +6,9 @@ Unicode True
 !ifndef OUTPUT_FILE
   !define OUTPUT_FILE "Sigilwoven-Setup-Windows-x86_64.exe"
 !endif
+!ifndef APP_VERSION
+  !define APP_VERSION "0.0.45"
+!endif
 
 Name "Sigilwoven"
 OutFile "${OUTPUT_FILE}"
@@ -13,13 +16,13 @@ InstallDir "$LOCALAPPDATA\Programs\Sigilwoven"
 InstallDirRegKey HKCU "Software\Sigilwoven" "InstallDir"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
-BrandingText "Sigilwoven Patch 039"
+BrandingText "Sigilwoven ${APP_VERSION}"
 
-VIProductVersion "0.0.39.0"
+VIProductVersion "${APP_VERSION}.0"
 VIAddVersionKey "ProductName" "Sigilwoven"
 VIAddVersionKey "FileDescription" "Sigilwoven Windows Installer"
-VIAddVersionKey "FileVersion" "0.0.39"
-VIAddVersionKey "ProductVersion" "0.0.39"
+VIAddVersionKey "FileVersion" "${APP_VERSION}"
+VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 
 Page directory
 Page instfiles
@@ -38,7 +41,7 @@ Section "Sigilwoven" SEC_GAME
   CreateShortcut "$DESKTOP\Sigilwoven.lnk" "$INSTDIR\Sigilwoven.exe"
 
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sigilwoven" "DisplayName" "Sigilwoven"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sigilwoven" "DisplayVersion" "0.0.39"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sigilwoven" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sigilwoven" "Publisher" "Sigilwoven"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sigilwoven" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Sigilwoven" "UninstallString" '"$INSTDIR\Uninstall.exe"'

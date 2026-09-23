@@ -7,6 +7,12 @@ build/
 *.tmp
 *.log
 
+# Local development notes and planning (not part of the public repository)
+logs/
+tasks/
+maingoal.md
+VERIFY.md
+
 # OS/editor noise
 .DS_Store
 Thumbs.db

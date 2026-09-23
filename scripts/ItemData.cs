@@ -27,12 +27,32 @@ public enum EquipmentSlot
     Amulet,
 }
 
+public enum WeaponArchetype
+{
+    None,
+    Sword,
+    Staff,
+    Bow,
+    Axe,
+    BoneWand,
+    Daggers,
+    Hammer,
+}
+
 public enum ItemStat
 {
     DamagePercent,
     MaxHealth,
     MaxMana,
     CooldownReduction,
+    Armor,
+    FireResistance,
+    ColdResistance,
+    LightningResistance,
+    PoisonResistance,
+    CriticalChance,
+    CriticalDamage,
+    ElementalPenetration,
 }
 
 public sealed class ItemAffix
@@ -56,6 +76,14 @@ public sealed class ItemAffix
             ItemStat.MaxHealth => $"+{Value:0} maximum health",
             ItemStat.MaxMana => $"+{Value:0} maximum mana",
             ItemStat.CooldownReduction => $"+{Value:0.#}% cooldown recovery",
+            ItemStat.Armor => $"+{Value:0} armor",
+            ItemStat.FireResistance => $"+{Value:0.#}% fire resistance",
+            ItemStat.ColdResistance => $"+{Value:0.#}% cold resistance",
+            ItemStat.LightningResistance => $"+{Value:0.#}% lightning resistance",
+            ItemStat.PoisonResistance => $"+{Value:0.#}% poison resistance",
+            ItemStat.CriticalChance => $"+{Value:0.#}% critical chance",
+            ItemStat.CriticalDamage => $"+{Value:0.#}% critical damage",
+            ItemStat.ElementalPenetration => $"+{Value:0.#}% elemental penetration",
             _ => $"+{Value:0.#} {DisplayName}",
         };
     }
@@ -68,6 +96,7 @@ public sealed class ItemData
     public EquipmentSlot Slot { get; init; }
     public ItemRarity Rarity { get; init; }
     public int ItemLevel { get; init; } = 1;
+    public WeaponArchetype WeaponType { get; init; }
     public List<ItemAffix> Affixes { get; init; } = new();
 
     [JsonIgnore]
@@ -93,14 +122,36 @@ public sealed class ItemData
         return total;
     }
 
+    [JsonIgnore]
+    public int GearScore => ItemLevel * 4 + Affixes.Count * 18 + (int)Rarity * 25;
+
+    public bool CanEquip(HeroClass heroClass) => WeaponType == WeaponArchetype.None || heroClass switch
+    {
+        HeroClass.Runeblade => WeaponType == WeaponArchetype.Sword,
+        HeroClass.Aetherist => WeaponType == WeaponArchetype.Staff,
+        HeroClass.Warden => WeaponType is WeaponArchetype.Bow or WeaponArchetype.Daggers,
+        HeroClass.Berserker => WeaponType == WeaponArchetype.Axe,
+        HeroClass.Necromancer => WeaponType == WeaponArchetype.BoneWand,
+        HeroClass.Shadowstalker => WeaponType == WeaponArchetype.Daggers,
+        HeroClass.Templar => WeaponType == WeaponArchetype.Hammer,
+        _ => false,
+    };
+
     public string BuildTooltip()
     {
-        string text = $"{Name}\n{Rarity.ToString().ToUpperInvariant()} {Slot.ToString().ToUpperInvariant()}  •  ITEM LEVEL {ItemLevel}";
+        string weapon = WeaponType == WeaponArchetype.None ? "" : $"  •  {WeaponType.ToString().ToUpperInvariant()}";
+        string text = $"{Name}\n{Rarity.ToString().ToUpperInvariant()} {Slot.ToString().ToUpperInvariant()}{weapon}  •  ITEM LEVEL {ItemLevel}  •  POWER {GearScore}";
         foreach (ItemAffix affix in Affixes)
         {
-            text += $"\n  {affix.Format()}";
+            text += $"\n  [T{GetAffixTier(affix)}] {affix.Format()}";
         }
         return text;
+    }
+
+    private int GetAffixTier(ItemAffix affix)
+    {
+        float normalized = affix.Value / Mathf.Max(1f, ItemLevel);
+        return normalized switch { >= 2.4f => 1, >= 1.5f => 2, >= 0.8f => 3, >= 0.35f => 4, _ => 5 };
     }
 }
 
@@ -118,7 +169,7 @@ public static class ItemGenerator
     private static readonly string[] RarePrefixes = { "Warden's", "Runebound", "Unbroken", "Stormwoven", "Graveborn" };
     private static readonly string[] RareSuffixes = { "of the Vault", "of Embers", "of Echoes", "of the Deep", "of Binding" };
 
-    public static ItemData Generate(int itemLevel, float rarityBonus = 0f)
+    public static ItemData Generate(int itemLevel, float rarityBonus = 0f, HeroClass? preferredClass = null)
     {
         itemLevel = Mathf.Max(1, itemLevel);
         EquipmentSlot slot = (EquipmentSlot)GD.RandRange(0, Enum.GetValues<EquipmentSlot>().Length - 1);
@@ -142,12 +193,12 @@ public static class ItemGenerator
         };
 
         var affixes = new List<ItemAffix>();
-        var available = new List<ItemStat> { ItemStat.DamagePercent, ItemStat.MaxHealth, ItemStat.MaxMana, ItemStat.CooldownReduction };
+        var available = new List<ItemStat>(Enum.GetValues<ItemStat>());
         for (int i = 0; i < affixCount; i++)
         {
             if (available.Count == 0)
             {
-                available.AddRange(new[] { ItemStat.DamagePercent, ItemStat.MaxHealth, ItemStat.MaxMana, ItemStat.CooldownReduction });
+                available.AddRange(Enum.GetValues<ItemStat>());
             }
             int index = GD.RandRange(0, available.Count - 1);
             ItemStat stat = available[index];
@@ -155,7 +206,8 @@ public static class ItemGenerator
             affixes.Add(CreateAffix(stat, itemLevel, rarity));
         }
 
-        string baseName = PickBase(slot);
+        WeaponArchetype weaponType = slot is EquipmentSlot.Weapon or EquipmentSlot.Focus ? RollWeapon(preferredClass) : WeaponArchetype.None;
+        string baseName = weaponType == WeaponArchetype.None ? PickBase(slot) : WeaponBase(weaponType);
         string name = rarity switch
         {
             ItemRarity.Magic => $"Charged {baseName}",
@@ -164,8 +216,36 @@ public static class ItemGenerator
             ItemRarity.Unique => $"Echo of {baseName}",
             _ => baseName,
         };
-        return new ItemData { Name = name, Slot = slot, Rarity = rarity, ItemLevel = itemLevel, Affixes = affixes };
+        return new ItemData { Name = name, Slot = slot, WeaponType = weaponType, Rarity = rarity, ItemLevel = itemLevel, Affixes = affixes };
     }
+
+    private static WeaponArchetype RollWeapon(HeroClass? preferredClass)
+    {
+        if (preferredClass.HasValue && GD.Randf() < 0.84f) return preferredClass.Value switch
+        {
+            HeroClass.Runeblade => WeaponArchetype.Sword,
+            HeroClass.Aetherist => WeaponArchetype.Staff,
+            HeroClass.Warden => GD.Randf() < 0.68f ? WeaponArchetype.Bow : WeaponArchetype.Daggers,
+            HeroClass.Berserker => WeaponArchetype.Axe,
+            HeroClass.Necromancer => WeaponArchetype.BoneWand,
+            HeroClass.Shadowstalker => WeaponArchetype.Daggers,
+            HeroClass.Templar => WeaponArchetype.Hammer,
+            _ => WeaponArchetype.Sword,
+        };
+        return (WeaponArchetype)GD.RandRange(1, Enum.GetValues<WeaponArchetype>().Length - 1);
+    }
+
+    private static string WeaponBase(WeaponArchetype type) => type switch
+    {
+        WeaponArchetype.Sword => "Runebound Longsword",
+        WeaponArchetype.Staff => "Astral Warstaff",
+        WeaponArchetype.Bow => "Nightwood Longbow",
+        WeaponArchetype.Axe => "Headsman's Greataxe",
+        WeaponArchetype.BoneWand => "Ossuary Wand",
+        WeaponArchetype.Daggers => "Graveglass Daggers",
+        WeaponArchetype.Hammer => "Sunless Warhammer",
+        _ => "Woven Weapon",
+    };
 
     private static ItemAffix CreateAffix(ItemStat stat, int level, ItemRarity rarity)
     {
@@ -176,6 +256,14 @@ public static class ItemGenerator
             ItemStat.MaxHealth => new ItemAffix(stat, Mathf.Round((GD.Randf() * 9f + 8f + level * 0.9f) * quality), "vitality"),
             ItemStat.MaxMana => new ItemAffix(stat, Mathf.Round((GD.Randf() * 5f + 5f + level * 0.45f) * quality), "aether"),
             ItemStat.CooldownReduction => new ItemAffix(stat, (GD.Randf() * 2.2f + 1.5f + level * 0.05f) * quality, "recovery"),
+            ItemStat.Armor => new ItemAffix(stat, Mathf.Round((GD.Randf() * 14f + 10f + level * 1.15f) * quality), "armor"),
+            ItemStat.FireResistance => new ItemAffix(stat, (GD.Randf() * 5f + 4f + level * 0.08f) * quality, "fire ward"),
+            ItemStat.ColdResistance => new ItemAffix(stat, (GD.Randf() * 5f + 4f + level * 0.08f) * quality, "cold ward"),
+            ItemStat.LightningResistance => new ItemAffix(stat, (GD.Randf() * 5f + 4f + level * 0.08f) * quality, "storm ward"),
+            ItemStat.PoisonResistance => new ItemAffix(stat, (GD.Randf() * 5f + 4f + level * 0.08f) * quality, "venom ward"),
+            ItemStat.CriticalChance => new ItemAffix(stat, (GD.Randf() * 2.2f + 1.2f + level * 0.025f) * quality, "precision"),
+            ItemStat.CriticalDamage => new ItemAffix(stat, (GD.Randf() * 7f + 6f + level * 0.11f) * quality, "ferocity"),
+            ItemStat.ElementalPenetration => new ItemAffix(stat, (GD.Randf() * 3.2f + 2f + level * 0.04f) * quality, "penetration"),
             _ => new ItemAffix(stat, 1f, stat.ToString()),
         };
     }

@@ -8,6 +8,8 @@ public partial class LootDrop : Node3D
     private float _age;
     private bool _collected;
     private PlayerController? _player;
+    private Label3D? _label;
+    private Sprite3D? _icon;
 
     public static void Spawn(Node scene, Vector3 position, ItemData item)
     {
@@ -36,6 +38,17 @@ public partial class LootDrop : Node3D
         itemMesh.SetSurfaceOverrideMaterial(0, material);
         AddChild(itemMesh);
 
+        _icon = new Sprite3D
+        {
+            Texture = ItemIconCatalog.Get(Item.Slot),
+            Position = new Vector3(0f, 1.35f, 0f),
+            PixelSize = 0.0022f,
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            NoDepthTest = true,
+            Modulate = color.Lerp(Colors.White, 0.68f),
+        };
+        AddChild(_icon);
+
         float beamHeight = Item.Rarity switch
         {
             ItemRarity.Unique => 5.5f,
@@ -51,16 +64,16 @@ public partial class LootDrop : Node3D
         beam.SetSurfaceOverrideMaterial(0, material);
         AddChild(beam);
 
-        var label = new Label3D
+        _label = new Label3D
         {
-            Text = $"[F] {Item.Name}\n{Item.Rarity.ToString().ToUpperInvariant()}  •  iLVL {Item.ItemLevel}",
+            Text = BuildGroundLabel(false),
             FontSize = 28,
             OutlineSize = 7,
-            Position = new Vector3(0f, 0.85f, 0f),
+            Position = new Vector3(0f, 2.05f, 0f),
             Modulate = color,
             NoDepthTest = true,
         };
-        AddChild(label);
+        AddChild(_label);
     }
 
     private static PrimitiveMesh BuildLootMesh(EquipmentSlot slot)
@@ -88,11 +101,30 @@ public partial class LootDrop : Node3D
         if (_player != null && IsInstanceValid(_player))
         {
             Visible = _player.Inventory.ShouldShow(Item);
+            float distance = GlobalPosition.DistanceTo(_player.GlobalPosition);
+            if (_label != null) _label.Text = BuildGroundLabel(distance <= 5f);
+            if (_icon != null) _icon.Scale = Vector3.One * (distance <= 5f ? 1.18f : 0.9f);
         }
         if (_age >= 90f)
         {
             QueueFree();
         }
+    }
+
+    private string BuildGroundLabel(bool detailed)
+    {
+        string header = $"[F] {Item.Name}\n{Item.Rarity.ToString().ToUpperInvariant()} {Item.Slot.ToString().ToUpperInvariant()}  •  PWR {Item.GearScore}";
+        if (!detailed) return header;
+        if (_player != null && IsInstanceValid(_player))
+        {
+            string comparison = _player.Inventory.BuildComparison(Item);
+            header += comparison.Contains("▲") || comparison.Contains("PURE UPGRADE") ? "  •  ▲ UPGRADE" : comparison.Contains("▼") ? "  •  ▼ SIDEGRADE" : "";
+        }
+        string affixes = "";
+        int shown = Mathf.Min(2, Item.Affixes.Count);
+        for (int i = 0; i < shown; i++) affixes += $"\n◆ {Item.Affixes[i].Format()}";
+        if (Item.Affixes.Count > shown) affixes += $"\n+{Item.Affixes.Count - shown} MORE AFFIXES";
+        return header + affixes;
     }
 
     public bool Collect(PlayerController player)

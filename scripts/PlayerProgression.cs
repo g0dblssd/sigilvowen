@@ -10,6 +10,10 @@ public enum HeroClass
     Runeblade,
     Aetherist,
     Warden,
+    Berserker,
+    Necromancer,
+    Shadowstalker,
+    Templar,
 }
 
 public enum ParagonStat
@@ -42,6 +46,7 @@ public partial class PlayerProgression : Node
     };
     private readonly HashSet<int> _allocatedPassiveNodes = new() { 0 };
     private readonly HashSet<string> _rewardUnlockedSkills = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _skillMastery = new(StringComparer.Ordinal);
 
     public HeroClass HeroClass { get; private set; } = HeroClass.Runeblade;
     public int Level { get; private set; } = 1;
@@ -58,15 +63,25 @@ public partial class PlayerProgression : Node
     public int PassiveHasteRanks { get; private set; }
     public int PassiveManaRanks { get; private set; }
 
-    public float DamageMultiplier => (HeroClass switch { HeroClass.Aetherist => 1.12f, HeroClass.Runeblade => 1.08f, _ => 1.03f })
-        + (Level - 1) * 0.003f + PowerRanks * 0.01f + PassivePowerRanks * 0.005f;
+    public float DamageMultiplier => (HeroClass switch
+        {
+            HeroClass.Aetherist => 1.12f,
+            HeroClass.Runeblade => 1.08f,
+            HeroClass.Berserker => 1.16f,
+            HeroClass.Necromancer => 1.06f,
+            HeroClass.Shadowstalker => 1.1f,
+            HeroClass.Templar => 1.02f,
+            _ => 1.03f,
+        })
+        + (Level - 1) * 0.0024f + ParagonPowerBonus + PassivePowerRanks * 0.005f;
     public float CooldownMultiplier => Mathf.Max(0.45f,
-        (HeroClass == HeroClass.Aetherist ? 0.95f : 1f) - HasteRanks * 0.004f - PassiveHasteRanks * 0.002f);
-    public float HealthBonus => (HeroClass == HeroClass.Warden ? 30f : (HeroClass == HeroClass.Runeblade ? 10f : 0f))
-        + VitalityRanks * 2f + PassiveVitalityRanks * 3f;
-    public float ManaBonus => (HeroClass == HeroClass.Aetherist ? 30f : 0f) + PassiveManaRanks * 2f;
+        (HeroClass == HeroClass.Aetherist ? 0.95f : 1f) - HasteRanks * 0.0025f - PassiveHasteRanks * 0.002f);
+    public float HealthBonus => (HeroClass switch { HeroClass.Warden => 30f, HeroClass.Runeblade => 10f, HeroClass.Berserker => 20f, HeroClass.Templar => 45f, HeroClass.Necromancer => -10f, _ => 0f })
+        + (Level - 1) * 0.85f + VitalityRanks * 3f + PassiveVitalityRanks * 3f;
+    public float ManaBonus => (HeroClass switch { HeroClass.Aetherist => 30f, HeroClass.Necromancer => 22f, HeroClass.Templar => 12f, _ => 0f }) + PassiveManaRanks * 2f;
     public int ExperienceToNextLevel => Level >= MaxLevel ? 0 : CalculateLevelRequirement(Level);
-    public int ExperienceToNextParagon => 1200 + ParagonLevel * 180;
+    public int ExperienceToNextParagon => 6000 + ParagonLevel * 450;
+    private float ParagonPowerBonus => Mathf.Min(PowerRanks, 50) * 0.008f + Mathf.Max(0, PowerRanks - 50) * 0.003f;
 
     public event Action? Changed;
     public event Action<string>? LinkUnlocked;
@@ -112,6 +127,22 @@ public partial class PlayerProgression : Node
         CommitChanges();
     }
 
+    public int ApplyDeathPenalty()
+    {
+        if (Level >= MaxLevel)
+        {
+            int paragonLost = Mathf.Min(ParagonExperience, Mathf.Max(0, Mathf.RoundToInt(ExperienceToNextParagon * 0.05f)));
+            ParagonExperience -= paragonLost;
+            if (paragonLost > 0) CommitChanges();
+            return paragonLost;
+        }
+        if (Level <= 1 || Experience <= 0) return 0;
+        int lost = Mathf.Min(Experience, Mathf.Max(12, Mathf.RoundToInt(ExperienceToNextLevel * 0.08f)));
+        Experience -= lost;
+        CommitChanges();
+        return lost;
+    }
+
     public bool IsLinkUnlocked(string linkId)
     {
         return _unlockedLinks.Contains(linkId);
@@ -121,24 +152,45 @@ public partial class PlayerProgression : Node
     {
         return skillId switch
         {
-            "ember_imp" => 3,
-            "spark_bolt" => 4,
-            "lightning_wisp" => 5,
-            "stone_shot" => 6,
-            "frost_spider" => 7,
-            "stone_skin" => 8,
-            "venom_fang" => 10,
-            "dread_hound" => 12,
-            "frost_armor" => 14,
-            "firestorm" => 15,
-            "thunderstorm" => 18,
-            "toxic_cloud" => 20,
-            "earthquake" => 22,
-            "plague_nova" => 24,
-            "phoenix" => 25,
-            "arc_surge" => 28,
+            "fireball" or "aether_pulse" or "rune_cleave" or "void_lance" or "split_arrow" or "war_cry" or "bone_spear" or "fan_of_knives" or "holy_smite" => 1,
+            "frostbolt" => 15,
+            "spark_bolt" => 25,
+            "ember_imp" => 30,
+            "venom_fang" or "blade_vortex" or "gravity_well" or "venom_knives" or "seismic_rage" or "raise_legion" or "smoke_bomb" or "consecrated_ground" => 35,
+            "flame_dash" => 40,
+            "chain_lightning" => 45,
+            "stone_shot" => 50,
+            "stone_skin" => 55,
+            "frost_spider" => 60,
+            "frost_armor" => 70,
+            "lightning_wisp" => 75,
+            "ice_nova" => 80,
+            "dread_hound" or "blood_lunge" or "arcane_echo" or "shadow_step" or "executioner_leap" or "corpse_bloom" or "death_mark" or "judgment_bell" => 90,
+            "firestorm" => 100,
+            "haste_aura" => 110,
+            "thunderstorm" => 120,
+            "toxic_cloud" => 125,
+            "meteor" => 135,
+            "earthquake" => 140,
+            "bone_golem" => 150,
+            "plague_nova" => 160,
+            "lightning_elemental" => 180,
+            "arc_surge" => 200,
+            "phoenix" => 240,
             _ => 1,
         };
+    }
+
+    public int GetSkillRank(string skillId) => 1 + Mathf.Min(19, GetSkillMastery(skillId) / 24);
+    public int GetSkillMastery(string skillId) => _skillMastery.TryGetValue(skillId, out int value) ? value : 0;
+    public float GetSkillDamageMultiplier(string skillId) => 1f + (GetSkillRank(skillId) - 1) * 0.055f;
+
+    public void GainSkillMastery(string skillId, int amount = 1)
+    {
+        if (amount <= 0 || SkillCatalog.ById(skillId) == null) return;
+        int oldRank = GetSkillRank(skillId);
+        _skillMastery[skillId] = GetSkillMastery(skillId) + amount;
+        if (GetSkillRank(skillId) != oldRank || _skillMastery[skillId] % 4 == 0) CommitChanges();
     }
 
     public bool IsSkillUnlocked(string skillId)
@@ -289,6 +341,7 @@ public partial class PlayerProgression : Node
                 UnlockedLinks = new List<string>(_unlockedLinks).ToArray(),
                 AllocatedPassiveNodes = new List<int>(_allocatedPassiveNodes).ToArray(),
                 RewardUnlockedSkills = new List<string>(_rewardUnlockedSkills).ToArray(),
+                SkillMastery = new Dictionary<string, int>(_skillMastery),
             };
             using FileAccess? file = FileAccess.Open(SavePath, FileAccess.ModeFlags.Write);
             if (file == null)
@@ -366,6 +419,11 @@ public partial class PlayerProgression : Node
                     _rewardUnlockedSkills.Add(skillId);
                 }
             }
+            _skillMastery.Clear();
+            foreach (var pair in data.SkillMastery)
+            {
+                if (SkillCatalog.ById(pair.Key) != null) _skillMastery[pair.Key] = Mathf.Max(0, pair.Value);
+            }
             GD.Print($"[Progression] Loaded level {Level}, paragon {ParagonLevel}, links {_unlockedLinks.Count}.");
         }
         catch (Exception exception)
@@ -376,7 +434,9 @@ public partial class PlayerProgression : Node
 
     private static int CalculateLevelRequirement(int level)
     {
-        return 80 + level * 24 + Mathf.RoundToInt(Mathf.Pow(level, 1.32f) * 7f);
+        // ~616k total XP from 1 to 300. Combined with level-scaled monster XP,
+        // this targets a long campaign rather than tens of thousands of flat-XP kills.
+        return 90 + level * 7 + Mathf.RoundToInt(Mathf.Pow(level, 1.18f) * 2.4f);
     }
 
     private sealed class ProgressionSaveData
@@ -399,5 +459,6 @@ public partial class PlayerProgression : Node
         public string[] UnlockedLinks { get; set; } = System.Array.Empty<string>();
         public int[] AllocatedPassiveNodes { get; set; } = System.Array.Empty<int>();
         public string[] RewardUnlockedSkills { get; set; } = System.Array.Empty<string>();
+        public Dictionary<string, int> SkillMastery { get; set; } = new();
     }
 }

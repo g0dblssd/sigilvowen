@@ -40,7 +40,7 @@ public partial class RaiderBolt : Node3D
         if (!_resolved && _target != null && IsInstanceValid(_target) && !_target.IsQueuedForDeletion() && GlobalPosition.DistanceTo(_target.GlobalPosition + new Vector3(0f, 0.8f, 0f)) < 0.7f)
         {
             _resolved = true;
-            _target.TakeDamage(_damage, "SHADOW BOLT");
+            _target.TakeDamage(_damage, "SHADOW BOLT", DamageElement.Lightning, 18f);
             var scene = GetTree().CurrentScene;
             if (scene != null)
             {

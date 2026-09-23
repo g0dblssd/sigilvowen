@@ -8,6 +8,13 @@ public enum EnemyArchetype
     Brute,
     Hexer,
     Guardian,
+    Berserker,
+    Shieldbearer,
+    Leaper,
+    Necromancer,
+    Ghoul,
+    SkeletonArcher,
+    Vampire,
 }
 
 public enum EliteModifier
@@ -16,6 +23,8 @@ public enum EliteModifier
     Frenzied,
     Bulwark,
     Stormbound,
+    Molten,
+    Warden,
 }
 
 public partial class Enemy : CharacterBody3D
@@ -44,12 +53,35 @@ public partial class Enemy : CharacterBody3D
     private Label3D? _healthLabel;
     private float _attackCooldown;
     private float _rangedCooldown;
+    private float _meleeWindup;
+    private float _rangedWindup;
+    private float _queuedMeleeDamage;
+    private PlayerController? _queuedMeleeTarget;
+    private PlayerController? _queuedRangedTarget;
     private float _hitFlash;
     private float _animationTime;
     private float _attackAnimationLeft;
+    private float _poiseMax = 55f;
+    private float _poise = 55f;
+    private float _poiseRegenDelay;
+    private float _shieldBlockCooldown;
+    private NavigationAgent3D? _navigationAgent;
+    private float _awarenessTimer;
+    private float _allyAlertCooldown;
+    private float _leapCooldown;
+    private float _leapWindup;
+    private float _leapTravel;
+    private Vector3 _leapOrigin;
+    private Vector3 _leapDestination;
+    private float _ritualCooldown;
+    private float _ritualWindup;
+    private FallenRemnant? _ritualRemnant;
     private EnemyArchetype _archetype;
     private EliteModifier _eliteModifier;
     private Color _normalColor = Colors.White;
+    private float _difficultyDamageMultiplier = 1f;
+    private float _difficultyRarityBonus;
+    private float _difficultyExperienceMultiplier = 1f;
     private float _bodyBaseY = 1f;
     private const float Gravity = 20f;
     private const float AttackRange = 1.9f;
@@ -59,6 +91,9 @@ public partial class Enemy : CharacterBody3D
 
     public bool IsTrainingDummy => _isTrainingDummy;
     public bool IsElite => _eliteModifier != EliteModifier.None;
+    public float Health => Mathf.Max(0f, _hp);
+    public EnemyArchetype Archetype => _archetype;
+    public string DisplayTitle => IsElite ? $"ELITE {_eliteModifier.ToString().ToUpperInvariant()} {_archetype.ToString().ToUpperInvariant()}" : _archetype.ToString().ToUpperInvariant();
     public event System.Action<Enemy>? Died;
     public event System.Action<Enemy>? Aggroed;
 
@@ -71,6 +106,13 @@ public partial class Enemy : CharacterBody3D
             EnemyArchetype.Brute => 1.6f,
             EnemyArchetype.Hexer => 0.82f,
             EnemyArchetype.Guardian => 1f,
+            EnemyArchetype.Berserker => 1.25f,
+            EnemyArchetype.Shieldbearer => 1.85f,
+            EnemyArchetype.Leaper => 1.05f,
+            EnemyArchetype.Necromancer => 1.18f,
+            EnemyArchetype.Ghoul => 0.9f,
+            EnemyArchetype.SkeletonArcher => 0.72f,
+            EnemyArchetype.Vampire => 1.45f,
             _ => 1f,
         };
         MaxHp = isTrainingDummy ? maxHp : maxHp * healthMultiplier;
@@ -85,14 +127,31 @@ public partial class Enemy : CharacterBody3D
         }
     }
 
+    public void ApplyDifficulty(float healthMultiplier, float damageMultiplier, float rarityBonus, float experienceMultiplier = 1f)
+    {
+        MaxHp *= Mathf.Max(0.1f, healthMultiplier);
+        _difficultyDamageMultiplier = Mathf.Max(0.1f, damageMultiplier);
+        _difficultyRarityBonus = Mathf.Max(0f, rarityBonus);
+        _difficultyExperienceMultiplier = Mathf.Max(0.1f, experienceMultiplier);
+    }
+
     public static EliteModifier RollEliteModifier()
     {
-        return (EliteModifier)GD.RandRange(1, 3);
+        return (EliteModifier)GD.RandRange(1, 5);
     }
 
     public void JoinAmbush(Node3D target)
     {
-        _encounterTarget = target;
+        AcquireTarget(target, "AMBUSH");
+    }
+
+    public void AlertFromAlly(Node3D target)
+    {
+        if (_isTrainingDummy || _encounterTarget != null || GlobalPosition.DistanceTo(target.GlobalPosition) > 13f)
+        {
+            return;
+        }
+        AcquireTarget(target, "ALLY");
     }
 
     private void AggroOnHit()
@@ -105,8 +164,7 @@ public partial class Enemy : CharacterBody3D
         {
             if (node is PlayerController player && IsInstanceValid(player) && player.Health > 0f)
             {
-                _encounterTarget = player;
-                Aggroed?.Invoke(this);
+                AcquireTarget(player, "DAMAGE");
                 return;
             }
         }
@@ -118,6 +176,29 @@ public partial class Enemy : CharacterBody3D
         CollisionMask = PhysicsLayers.World | PhysicsLayers.Player | PhysicsLayers.Ally;
         AddToGroup("enemies");
         _hp = MaxHp;
+        _poiseMax = _archetype switch
+        {
+            EnemyArchetype.Brute => 115f,
+            EnemyArchetype.Guardian => 260f,
+            EnemyArchetype.Hexer => 42f,
+            _ => 62f,
+        } * (IsElite ? 1.65f : 1f);
+        _poise = _poiseMax;
+
+        if (!_isTrainingDummy)
+        {
+            _navigationAgent = new NavigationAgent3D
+            {
+                PathDesiredDistance = 0.45f,
+                TargetDesiredDistance = AttackRange * 0.8f,
+                Radius = _archetype == EnemyArchetype.Guardian ? 0.9f : 0.48f,
+                Height = _archetype == EnemyArchetype.Guardian ? 3.1f : 2f,
+                AvoidanceEnabled = false,
+                NeighborDistance = 4.5f,
+                MaxNeighbors = 10,
+            };
+            AddChild(_navigationAgent);
+        }
 
         _normalColor = _isTrainingDummy
             ? new Color(0.62f, 0.48f, 0.25f)
@@ -125,6 +206,8 @@ public partial class Enemy : CharacterBody3D
             {
                 EliteModifier.Frenzied => new Color(1f, 0.22f, 0.12f),
                 EliteModifier.Bulwark => new Color(0.82f, 0.68f, 0.16f),
+                EliteModifier.Molten => new Color(1f, 0.19f, 0.025f),
+                EliteModifier.Warden => new Color(0.12f, 0.95f, 0.58f),
                 _ => new Color(0.3f, 0.55f, 1f),
             }
             : _archetype switch
@@ -132,6 +215,13 @@ public partial class Enemy : CharacterBody3D
                 EnemyArchetype.Brute => new Color(0.68f, 0.42f, 0.36f),
                 EnemyArchetype.Hexer => new Color(0.48f, 0.58f, 1f),
                 EnemyArchetype.Guardian => new Color(0.9f, 0.62f, 0.18f),
+                EnemyArchetype.Berserker => new Color(0.92f, 0.16f, 0.08f),
+                EnemyArchetype.Shieldbearer => new Color(0.3f, 0.48f, 0.72f),
+                EnemyArchetype.Leaper => new Color(1f, 0.42f, 0.08f),
+                EnemyArchetype.Necromancer => new Color(0.42f, 0.95f, 0.48f),
+                EnemyArchetype.Ghoul => new Color(0.48f, 0.72f, 0.34f),
+                EnemyArchetype.SkeletonArcher => new Color(0.78f, 0.78f, 0.66f),
+                EnemyArchetype.Vampire => new Color(0.78f, 0.08f, 0.16f),
                 _ => Colors.White,
             };
         _mat = new StandardMaterial3D
@@ -150,6 +240,13 @@ public partial class Enemy : CharacterBody3D
             EnemyArchetype.Brute => new Vector3(1.28f, 2.35f, 1.18f),
             EnemyArchetype.Hexer => new Vector3(0.86f, 1.82f, 0.86f),
             EnemyArchetype.Guardian => new Vector3(1.75f, 3.15f, 1.65f),
+            EnemyArchetype.Berserker => new Vector3(1.18f, 2.2f, 1.08f),
+            EnemyArchetype.Shieldbearer => new Vector3(1.18f, 2.25f, 1.08f),
+            EnemyArchetype.Leaper => new Vector3(0.92f, 1.78f, 0.88f),
+            EnemyArchetype.Necromancer => new Vector3(0.9f, 1.92f, 0.9f),
+            EnemyArchetype.Ghoul => new Vector3(0.95f, 1.75f, 0.9f),
+            EnemyArchetype.SkeletonArcher => new Vector3(0.82f, 1.85f, 0.82f),
+            EnemyArchetype.Vampire => new Vector3(1.02f, 2.05f, 0.95f),
             _ => new Vector3(1f, 2f, 1f),
         };
         _bodyBaseY = bodySize.Y * 0.5f;
@@ -163,6 +260,7 @@ public partial class Enemy : CharacterBody3D
         {
             AddRaiderDetails();
         }
+        if (!_isTrainingDummy) AddArchetypeReadability();
         if (!_isTrainingDummy && IsElite) AddEliteEffect();
 
         var col = new CollisionShape3D { Shape = new BoxShape3D { Size = bodySize } };
@@ -187,28 +285,35 @@ public partial class Enemy : CharacterBody3D
     {
         float step = (float)delta;
         _animationTime += step;
+        UpdateAwareness(step);
+        UpdateSpecialAbilities(step);
         Vector3 velocity = Velocity;
         velocity.X = 0f;
         velocity.Z = 0f;
+        UpdateAttackWindups(step);
 
         if (_encounterTarget != null && IsInstanceValid(_encounterTarget))
         {
             Vector3 direction = _encounterTarget.GlobalPosition - GlobalPosition;
             direction.Y = 0f;
             float distance = direction.Length();
-            if (!IsStunned())
+            if (!IsStunned() && _leapWindup <= 0f && _leapTravel <= 0f && _ritualWindup <= 0f)
             {
                 float moveMultiplier = _chillTimer > 0f ? 1f - _chillSlow : 1f;
                 Vector3 moveDirection = Vector3.Zero;
                 if (_archetype == EnemyArchetype.Hexer && distance > AttackRange && distance < 4f)
                 {
-                    moveDirection = -direction.Normalized();
+                    moveDirection = -GetNavigationDirection(direction);
                 }
                 else if (distance > (_archetype == EnemyArchetype.Hexer ? 7f : AttackRange))
                 {
-                    moveDirection = direction.Normalized();
+                    moveDirection = GetNavigationDirection(direction);
                 }
                 Vector3 movement = moveDirection * GetMoveSpeed() * moveMultiplier;
+                if (_meleeWindup > 0f || _rangedWindup > 0f)
+                {
+                    movement = Vector3.Zero;
+                }
                 velocity.X = movement.X;
                 velocity.Z = movement.Z;
                 if (direction.LengthSquared() > 0.01f)
@@ -288,6 +393,15 @@ public partial class Enemy : CharacterBody3D
         AnimateStatusFx(_poisonFx, step, -1.9f);
         AnimateStatusFx(_chillFx, step, 1.25f);
         _hitFlash = Mathf.Max(0f, _hitFlash - step);
+        _poiseRegenDelay = Mathf.Max(0f, _poiseRegenDelay - step);
+        _shieldBlockCooldown = Mathf.Max(0f, _shieldBlockCooldown - step);
+        _allyAlertCooldown = Mathf.Max(0f, _allyAlertCooldown - step);
+        _leapCooldown = Mathf.Max(0f, _leapCooldown - step);
+        _ritualCooldown = Mathf.Max(0f, _ritualCooldown - step);
+        if (_poiseRegenDelay <= 0f && _poise < _poiseMax)
+        {
+            _poise = Mathf.Min(_poiseMax, _poise + _poiseMax * 0.22f * step);
+        }
     }
 
     private float GetMoveSpeed()
@@ -297,21 +411,184 @@ public partial class Enemy : CharacterBody3D
             EnemyArchetype.Brute => 1.18f,
             EnemyArchetype.Hexer => 1.52f,
             EnemyArchetype.Guardian => 1.05f,
+            EnemyArchetype.Berserker => 1.78f,
+            EnemyArchetype.Shieldbearer => 1.22f,
+            EnemyArchetype.Leaper => 2.05f,
+            EnemyArchetype.Necromancer => 1.2f,
+            EnemyArchetype.Ghoul => 2.2f,
+            EnemyArchetype.SkeletonArcher => 1.5f,
+            EnemyArchetype.Vampire => 1.95f,
             _ => 1.7f,
         };
-        return speed * (_eliteModifier == EliteModifier.Frenzied ? 1.42f : 1f);
+        float woundedFrenzy = _archetype == EnemyArchetype.Berserker && _hp < MaxHp * 0.5f ? 1.48f : 1f;
+        return speed * woundedFrenzy * (_eliteModifier == EliteModifier.Frenzied ? 1.42f : 1f);
+    }
+
+    private void AcquireTarget(Node3D target, string source)
+    {
+        if (_isTrainingDummy || !IsInstanceValid(target)) return;
+        bool wasDormant = _encounterTarget == null;
+        _encounterTarget = target;
+        if (!wasDormant) return;
+        Aggroed?.Invoke(this);
+        if (_allyAlertCooldown > 0f) return;
+        _allyAlertCooldown = 1.5f;
+        foreach (Node node in GetTree().GetNodesInGroup("enemies"))
+        {
+            if (node is Enemy ally && ally != this && IsInstanceValid(ally) && GlobalPosition.DistanceTo(ally.GlobalPosition) <= 9f)
+            {
+                ally.AlertFromAlly(target);
+            }
+        }
+        GD.Print($"[Aggro] {DisplayTitle} acquired target via {source}.");
+    }
+
+    private void UpdateAwareness(float step)
+    {
+        if (_isTrainingDummy || _encounterTarget != null) return;
+        _awarenessTimer -= step;
+        if (_awarenessTimer > 0f) return;
+        _awarenessTimer = 0.18f + GD.Randf() * 0.12f;
+        foreach (Node node in GetTree().GetNodesInGroup("player"))
+        {
+            if (node is not PlayerController player || !IsInstanceValid(player) || player.Health <= 0f) continue;
+            float distance = GlobalPosition.DistanceTo(player.GlobalPosition);
+            bool heard = distance <= 6.2f && new Vector2(player.Velocity.X, player.Velocity.Z).Length() > 0.45f;
+            bool seen = distance <= 12.5f && HasLineOfSight(player);
+            if (heard || seen)
+            {
+                AcquireTarget(player, heard && !seen ? "SOUND" : "SIGHT");
+                return;
+            }
+        }
+    }
+
+    private bool HasLineOfSight(PlayerController player)
+    {
+        var query = PhysicsRayQueryParameters3D.Create(GlobalPosition + Vector3.Up, player.GlobalPosition + Vector3.Up);
+        query.CollisionMask = PhysicsLayers.World | PhysicsLayers.Player;
+        query.Exclude = new Godot.Collections.Array<Rid> { GetRid() };
+        Godot.Collections.Dictionary result = GetWorld3D().DirectSpaceState.IntersectRay(query);
+        return result.Count == 0 || (result.TryGetValue("collider", out Variant collider) && collider.AsGodotObject() == player);
+    }
+
+    private Vector3 GetNavigationDirection(Vector3 fallbackDirection)
+    {
+        if (_navigationAgent == null || _encounterTarget == null || !IsInstanceValid(_encounterTarget)) return fallbackDirection.Normalized();
+        _navigationAgent.TargetPosition = _encounterTarget.GlobalPosition;
+        Vector3 direction = _navigationAgent.GetNextPathPosition() - GlobalPosition;
+        direction.Y = 0f;
+        return direction.LengthSquared() > 0.01f ? direction.Normalized() : fallbackDirection.Normalized();
+    }
+
+    private void UpdateSpecialAbilities(float step)
+    {
+        if (_encounterTarget is not PlayerController player || !IsInstanceValid(player) || player.Health <= 0f || IsStunned()) return;
+
+        if (_leapWindup > 0f)
+        {
+            _leapWindup -= step;
+            if (_leapWindup <= 0f)
+            {
+                _leapOrigin = GlobalPosition;
+                _leapTravel = 0.42f;
+                PlayModelAnimation("CharacterArmature|Punch", true);
+            }
+            return;
+        }
+        if (_leapTravel > 0f)
+        {
+            _leapTravel -= step;
+            float progress = Mathf.Clamp(1f - _leapTravel / 0.42f, 0f, 1f);
+            GlobalPosition = _leapOrigin.Lerp(_leapDestination, progress) + Vector3.Up * Mathf.Sin(progress * Mathf.Pi) * 2.6f;
+            if (_leapTravel <= 0f)
+            {
+                GlobalPosition = _leapDestination;
+                if (GlobalPosition.DistanceTo(player.GlobalPosition) <= 2.5f)
+                {
+                    player.TakeDamage(24f * (IsElite ? 1.3f : 1f) * _difficultyDamageMultiplier, "LEAPER IMPACT", DamageElement.Physical, 46f);
+                }
+                Node? scene = GetTree().CurrentScene;
+                if (scene != null) SkillVfx.SpawnImpact(scene, GlobalPosition, DamageElement.Fire, true);
+            }
+            return;
+        }
+        if (_archetype == EnemyArchetype.Leaper && _leapCooldown <= 0f)
+        {
+            float distance = GlobalPosition.DistanceTo(player.GlobalPosition);
+            if (distance is >= 4f and <= 10.5f)
+            {
+                _leapDestination = player.GlobalPosition;
+                _leapDestination.Y = 0f;
+                _leapWindup = 0.72f;
+                _leapCooldown = 4.8f;
+                Node? scene = GetTree().CurrentScene;
+                if (scene != null) DangerTelegraph.SpawnCircle(scene, _leapDestination, 2.35f, _leapWindup + 0.42f);
+                return;
+            }
+        }
+
+        if (_ritualWindup > 0f)
+        {
+            _ritualWindup -= step;
+            if (_ritualWindup <= 0f && _ritualRemnant != null && IsInstanceValid(_ritualRemnant))
+            {
+                _ritualRemnant.Resurrect(player);
+                _ritualRemnant = null;
+            }
+            return;
+        }
+        if (_archetype == EnemyArchetype.Necromancer && _ritualCooldown <= 0f)
+        {
+            FallenRemnant? closest = FindClosestRemnant(11f);
+            if (closest != null)
+            {
+                _ritualRemnant = closest;
+                _ritualWindup = 1.65f;
+                _ritualCooldown = 7.5f;
+                Node? scene = GetTree().CurrentScene;
+                if (scene != null) DangerTelegraph.SpawnCircle(scene, closest.GlobalPosition, 1.4f, _ritualWindup);
+                PlayModelAnimation("CharacterArmature|Shoot_OneHanded", true);
+            }
+        }
+    }
+
+    private FallenRemnant? FindClosestRemnant(float range)
+    {
+        FallenRemnant? closest = null;
+        float best = range;
+        foreach (Node node in GetTree().GetNodesInGroup("fallen_remnants"))
+        {
+            if (node is not FallenRemnant remnant || !IsInstanceValid(remnant)) continue;
+            float distance = GlobalPosition.DistanceTo(remnant.GlobalPosition);
+            if (distance < best)
+            {
+                best = distance;
+                closest = remnant;
+            }
+        }
+        return closest;
     }
 
     private bool TryBuildImportedEnemy()
     {
+        bool kenneyModel = _archetype is EnemyArchetype.Ghoul or EnemyArchetype.SkeletonArcher or EnemyArchetype.Vampire;
         string file = _archetype switch
         {
             EnemyArchetype.Brute => "Viking_Male.fbx",
             EnemyArchetype.Hexer => "Wizard.fbx",
             EnemyArchetype.Guardian => "Knight_Golden_Male.fbx",
+            EnemyArchetype.Berserker => "Viking_Male.fbx",
+            EnemyArchetype.Shieldbearer => "Knight_Golden_Male.fbx",
+            EnemyArchetype.Leaper => "Ninja_Male.fbx",
+            EnemyArchetype.Necromancer => "Wizard.fbx",
+            EnemyArchetype.Ghoul => "character-zombie.glb",
+            EnemyArchetype.SkeletonArcher => "character-skeleton.glb",
+            EnemyArchetype.Vampire => "character-vampire.glb",
             _ => "Ninja_Male.fbx",
         };
-        PackedScene? scene = GD.Load<PackedScene>($"res://assets/models/quaternius_enemies/{file}");
+        string directory = kenneyModel ? "kenney_graveyard" : "quaternius_enemies";
+        PackedScene? scene = GD.Load<PackedScene>($"res://assets/models/{directory}/{file}");
         if (scene?.Instantiate() is not Node3D model)
         {
             return false;
@@ -323,17 +600,29 @@ public partial class Enemy : CharacterBody3D
                 EnemyArchetype.Brute => 0.8f,
                 EnemyArchetype.Hexer => 0.62f,
                 EnemyArchetype.Guardian => 1f,
+                EnemyArchetype.Berserker => 0.75f,
+                EnemyArchetype.Shieldbearer => 0.78f,
+                EnemyArchetype.Leaper => 0.61f,
+                EnemyArchetype.Necromancer => 0.64f,
+                EnemyArchetype.Ghoul => 1.05f,
+                EnemyArchetype.SkeletonArcher => 1.05f,
+                EnemyArchetype.Vampire => 1.08f,
                 _ => 0.66f,
             }),
         };
         AddChild(_modelRoot);
         _modelRoot.AddChild(model);
+        if (kenneyModel)
+        {
+            _modelAnimator = null;
+            if (_mesh != null) _mesh.Visible = false;
+            return true;
+        }
         _modelAnimator = model.GetNodeOrNull<AnimationPlayer>("AnimationPlayer");
         if (_modelAnimator == null)
         {
-            _modelRoot.QueueFree();
-            _modelRoot = null;
-            return false;
+            if (_mesh != null) _mesh.Visible = false;
+            return true;
         }
         if (_modelAnimator.GetAnimation("CharacterArmature|Idle") is Animation idle) idle.LoopMode = Animation.LoopModeEnum.Linear;
         if (_modelAnimator.GetAnimation("CharacterArmature|Walk") is Animation walk) walk.LoopMode = Animation.LoopModeEnum.Linear;
@@ -351,7 +640,7 @@ public partial class Enemy : CharacterBody3D
 
     private void UpdateRangedAttack(PlayerController target, float distance, float step)
     {
-        if ((_archetype == EnemyArchetype.Brute && _eliteModifier != EliteModifier.Stormbound) || distance < 3f || distance > 11f)
+        if (_rangedWindup > 0f || _meleeWindup > 0f || _leapWindup > 0f || _ritualWindup > 0f || ((_archetype is EnemyArchetype.Brute or EnemyArchetype.Leaper or EnemyArchetype.Ghoul) && _eliteModifier != EliteModifier.Stormbound) || distance < 3f || distance > 11f)
         {
             return;
         }
@@ -366,12 +655,18 @@ public partial class Enemy : CharacterBody3D
             EnemyArchetype.Guardian => 1.8f + GD.Randf() * 0.3f,
             _ => 2.4f + GD.Randf() * 0.8f,
         };
-        FireShadowBolt(target);
+        _queuedRangedTarget = target;
+        _rangedWindup = _eliteModifier == EliteModifier.Stormbound ? 0.28f : 0.42f;
+        Node? scene = GetTree().CurrentScene;
+        if (scene != null)
+        {
+            DangerTelegraph.SpawnLine(scene, GlobalPosition, target.GlobalPosition, _eliteModifier == EliteModifier.Stormbound ? 0.32f : 0.22f, _rangedWindup);
+        }
     }
 
     private void UpdateMeleeAttack(PlayerController target, float distance, float step)
     {
-        if (distance > AttackRange || Mathf.Abs(target.GlobalPosition.Y - GlobalPosition.Y) > MaxAttackHeightDifference)
+        if (_meleeWindup > 0f || _rangedWindup > 0f || distance > AttackRange || Mathf.Abs(target.GlobalPosition.Y - GlobalPosition.Y) > MaxAttackHeightDifference)
         {
             return;
         }
@@ -380,7 +675,7 @@ public partial class Enemy : CharacterBody3D
         {
             return;
         }
-        _attackCooldown = (_archetype == EnemyArchetype.Brute ? 1.35f : 1.05f) * (_eliteModifier == EliteModifier.Frenzied ? 0.62f : 1f);
+        _attackCooldown = (_archetype == EnemyArchetype.Brute ? 1.35f : _archetype == EnemyArchetype.Shieldbearer ? 1.55f : 1.05f) * (_eliteModifier == EliteModifier.Frenzied ? 0.62f : 1f);
         _attackAnimationLeft = AttackAnimationDuration;
         if (_modelAnimator != null)
         {
@@ -392,10 +687,68 @@ public partial class Enemy : CharacterBody3D
             EnemyArchetype.Brute => 22f,
             EnemyArchetype.Hexer => 7f,
             EnemyArchetype.Guardian => 34f,
+            EnemyArchetype.Berserker => _hp < MaxHp * 0.5f ? 25f : 16f,
+            EnemyArchetype.Shieldbearer => 18f,
+            EnemyArchetype.Leaper => 13f,
+            EnemyArchetype.Necromancer => 9f,
             _ => 12f,
         };
         if (IsElite) damage *= _eliteModifier == EliteModifier.Frenzied ? 1.5f : 1.3f;
-        target.TakeDamage(damage, _archetype.ToString().ToUpperInvariant());
+        damage *= 1.25f * _difficultyDamageMultiplier;
+        _queuedMeleeDamage = damage;
+        _queuedMeleeTarget = target;
+        _meleeWindup = _archetype switch
+        {
+            EnemyArchetype.Brute => 0.62f,
+            EnemyArchetype.Guardian => 0.78f,
+            _ => 0.36f,
+        };
+        Node? scene = GetTree().CurrentScene;
+        if (scene != null)
+        {
+            DangerTelegraph.SpawnCircle(scene, target.GlobalPosition, _archetype == EnemyArchetype.Guardian ? 1.8f : 1.15f, _meleeWindup);
+        }
+    }
+
+    private void UpdateAttackWindups(float step)
+    {
+        if (_meleeWindup > 0f)
+        {
+            _meleeWindup -= step;
+            if (_meleeWindup <= 0f)
+            {
+                ResolveMeleeAttack();
+            }
+        }
+        if (_rangedWindup > 0f)
+        {
+            _rangedWindup -= step;
+            if (_rangedWindup <= 0f)
+            {
+                PlayerController? target = _queuedRangedTarget;
+                _queuedRangedTarget = null;
+                if (target != null && IsInstanceValid(target) && target.Health > 0f)
+                {
+                    FireShadowBolt(target);
+                }
+            }
+        }
+    }
+
+    private void ResolveMeleeAttack()
+    {
+        PlayerController? target = _queuedMeleeTarget;
+        _queuedMeleeTarget = null;
+        if (target == null || !IsInstanceValid(target) || target.Health <= 0f)
+        {
+            return;
+        }
+        float hitRange = _archetype == EnemyArchetype.Guardian ? 2.8f : AttackRange + 0.35f;
+        if (GlobalPosition.DistanceTo(target.GlobalPosition) > hitRange)
+        {
+            return;
+        }
+        target.TakeDamage(_queuedMeleeDamage, _archetype.ToString().ToUpperInvariant(), DamageElement.Physical, _archetype == EnemyArchetype.Brute ? 44f : 25f);
         SpawnMeleeImpact(target.GlobalPosition);
         FlashHit(new Color(1f, 0.85f, 0.25f));
     }
@@ -504,6 +857,63 @@ public partial class Enemy : CharacterBody3D
         }
     }
 
+    private void AddArchetypeReadability()
+    {
+        if (_archetype == EnemyArchetype.Shieldbearer)
+        {
+            var shieldMaterial = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.12f, 0.2f, 0.32f),
+                Metallic = 0.82f,
+                Roughness = 0.28f,
+                EmissionEnabled = true,
+                Emission = new Color(0.05f, 0.22f, 0.55f),
+                EmissionEnergyMultiplier = 1.2f,
+            };
+            var shield = new MeshInstance3D
+            {
+                Mesh = new BoxMesh { Size = new Vector3(1.1f, 1.45f, 0.18f) },
+                Position = new Vector3(0f, 1.05f, 0.68f),
+            };
+            shield.SetSurfaceOverrideMaterial(0, shieldMaterial);
+            AddChild(shield);
+        }
+        else if (_archetype == EnemyArchetype.Berserker)
+        {
+            var rageMaterial = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(1f, 0.08f, 0.02f, 0.7f),
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                EmissionEnabled = true,
+                Emission = new Color(1f, 0.03f, 0.01f),
+                EmissionEnergyMultiplier = 3f,
+            };
+            var rage = new MeshInstance3D { Mesh = new TorusMesh { InnerRadius = 0.72f, OuterRadius = 0.84f }, Position = new Vector3(0f, 0.12f, 0f) };
+            rage.SetSurfaceOverrideMaterial(0, rageMaterial);
+            AddChild(rage);
+        }
+        else if (_archetype is EnemyArchetype.Leaper or EnemyArchetype.Necromancer)
+        {
+            Color tellColor = _archetype == EnemyArchetype.Leaper ? new Color(1f, 0.28f, 0.02f) : new Color(0.08f, 1f, 0.25f);
+            var tellMaterial = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(tellColor.R, tellColor.G, tellColor.B, 0.72f),
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                EmissionEnabled = true,
+                Emission = tellColor,
+                EmissionEnergyMultiplier = 3.4f,
+            };
+            var tell = new MeshInstance3D
+            {
+                Mesh = new TorusMesh { InnerRadius = 0.5f, OuterRadius = 0.62f },
+                Position = new Vector3(0f, _archetype == EnemyArchetype.Leaper ? 1.25f : 1.85f, 0f),
+                Rotation = new Vector3(Mathf.Pi * 0.5f, 0f, 0f),
+            };
+            tell.SetSurfaceOverrideMaterial(0, tellMaterial);
+            AddChild(tell);
+        }
+    }
+
     private void AddEliteEffect()
     {
         Color color = _normalColor;
@@ -524,6 +934,26 @@ public partial class Enemy : CharacterBody3D
         AddChild(halo);
         var light = new OmniLight3D { LightColor = color, LightEnergy = 1.5f, OmniRange = 4.5f, Position = new Vector3(0f, 1.3f, 0f) };
         AddChild(light);
+        if (_eliteModifier == EliteModifier.Warden)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                float angle = Mathf.Tau * i / 3f;
+                var pylon = new MeshInstance3D
+                {
+                    Mesh = new PrismMesh { Size = new Vector3(0.22f, 0.7f, 0.22f) },
+                    Position = new Vector3(Mathf.Cos(angle) * 1.05f, 1.05f, Mathf.Sin(angle) * 1.05f),
+                };
+                pylon.SetSurfaceOverrideMaterial(0, material);
+                AddChild(pylon);
+            }
+        }
+        else if (_eliteModifier == EliteModifier.Molten)
+        {
+            var moltenRing = new MeshInstance3D { Mesh = new TorusMesh { InnerRadius = 1.05f, OuterRadius = 1.22f }, Position = new Vector3(0f, 0.08f, 0f) };
+            moltenRing.SetSurfaceOverrideMaterial(0, material);
+            AddChild(moltenRing);
+        }
     }
 
     private void AnimateBody(float step, bool moving)
@@ -558,6 +988,11 @@ public partial class Enemy : CharacterBody3D
         _mesh.Position = new Vector3(0f, _bodyBaseY + bob, attackPunch * 0.22f);
         _mesh.Rotation = new Vector3(attackPunch * -0.18f, 0f, sway);
         _mesh.Scale = new Vector3(1f + attackPunch * 0.12f, 1f - attackPunch * 0.08f, 1f + attackPunch * 0.18f);
+        if (_modelRoot != null && !_mesh.Visible)
+        {
+            _modelRoot.Position = new Vector3(0f, bob, attackPunch * 0.18f);
+            _modelRoot.Rotation = new Vector3(attackPunch * -0.12f, 0f, sway * 0.7f);
+        }
         if (_hitFlash <= 0f)
         {
             _mat.EmissionEnergyMultiplier = _isTrainingDummy
@@ -583,6 +1018,13 @@ public partial class Enemy : CharacterBody3D
     public void ApplyStun(float duration)
     {
         _stunTimer = Mathf.Max(_stunTimer, duration);
+        _meleeWindup = 0f;
+        _rangedWindup = 0f;
+        _queuedMeleeTarget = null;
+        _queuedRangedTarget = null;
+        _leapWindup = 0f;
+        _ritualWindup = 0f;
+        _ritualRemnant = null;
     }
 
     public void ApplyBurn(float dps, float duration)
@@ -657,12 +1099,43 @@ public partial class Enemy : CharacterBody3D
         }
         AggroOnHit();
         amount = Mathf.Max(0f, amount);
+        if (_archetype == EnemyArchetype.Shieldbearer && _shieldBlockCooldown <= 0f && IsPlayerInFront())
+        {
+            amount *= 0.22f;
+            _shieldBlockCooldown = 2.8f;
+            Node? blockScene = GetTree().CurrentScene;
+            if (blockScene != null) SkillVfx.SpawnImpact(blockScene, GlobalPosition + Vector3.Up, DamageElement.Cold, true);
+        }
+        if (element != DamageElement.Physical)
+        {
+            float penetration = resolved?.ElementalPenetration ?? 0f;
+            float effectiveResistance = Mathf.Clamp(GetElementResistance(element) - penetration, -25f, 75f);
+            amount *= 1f - effectiveResistance / 100f;
+        }
         if (_eliteModifier == EliteModifier.Bulwark) amount *= 0.72f;
+        if (IsProtectedByWarden()) amount *= 0.64f;
         if (resolved != null && resolved.ExecuteThreshold > 0f && _hp <= MaxHp * resolved.ExecuteThreshold)
         {
             amount *= resolved.ExecuteMultiplier;
         }
-        TakeRawDamage(amount, false);
+        Color? hitColor = resolved?.IsCritical == true ? new Color(1f, 0.82f, 0.18f) : null;
+        TakeRawDamage(amount, false, hitColor, resolved?.IsCritical == true);
+        if (resolved?.IsCritical == true && _encounterTarget is PlayerController criticalOwner && IsInstanceValid(criticalOwner))
+        {
+            criticalOwner.TriggerHitFeedback(0.2f, true);
+        }
+        if (_hp > 0f && resolved != null && resolved.StaggerDamage > 0f)
+        {
+            _poise = Mathf.Max(0f, _poise - resolved.StaggerDamage);
+            _poiseRegenDelay = 1.8f;
+            if (_poise <= 0f)
+            {
+                _poise = _poiseMax;
+                ApplyStun(_archetype == EnemyArchetype.Guardian ? 0.28f : 0.58f);
+                Node? scene = GetTree().CurrentScene;
+                if (scene != null) SkillVfx.SpawnImpact(scene, GlobalPosition, DamageElement.Physical, true);
+            }
+        }
         if (resolved != null)
         {
             if (resolved.HasStun && GD.Randf() < resolved.StunChance)
@@ -684,7 +1157,21 @@ public partial class Enemy : CharacterBody3D
         }
     }
 
-    private void TakeRawDamage(float amount, bool isBurn, Color? numberColor = null)
+    private float GetElementResistance(DamageElement element)
+    {
+        float resistance = (_archetype, element) switch
+        {
+            (EnemyArchetype.Brute, DamageElement.Fire) => 20f,
+            (EnemyArchetype.Berserker, DamageElement.Fire) => 28f,
+            (EnemyArchetype.Hexer, DamageElement.Lightning) => 24f,
+            (EnemyArchetype.Shieldbearer, DamageElement.Cold) => 22f,
+            (EnemyArchetype.Guardian, _) => 18f,
+            _ => 0f,
+        };
+        return resistance + (_eliteModifier == EliteModifier.Bulwark ? 12f : 0f);
+    }
+
+    private void TakeRawDamage(float amount, bool isBurn, Color? numberColor = null, bool isCritical = false)
     {
         if (_hp <= 0f)
         {
@@ -694,7 +1181,7 @@ public partial class Enemy : CharacterBody3D
         {
             _hp -= amount;
         }
-        SpawnDamageNumber(amount, isBurn, numberColor);
+        SpawnDamageNumber(amount, isBurn, numberColor, isCritical);
         FlashHit(numberColor ?? (isBurn ? new Color(1f, 0.28f, 0.05f) : new Color(1f, 1f, 1f)));
         if (!isBurn && _modelAnimator != null && _hp > 0f)
         {
@@ -707,6 +1194,8 @@ public partial class Enemy : CharacterBody3D
         }
         if (_hp <= 0f)
         {
+            SpawnFallenRemnant();
+            if (_eliteModifier == EliteModifier.Molten) SpawnMoltenDeathHazard();
             Died?.Invoke(this);
             AwardExperience();
             DropAether();
@@ -737,30 +1226,54 @@ public partial class Enemy : CharacterBody3D
         {
             return;
         }
-        int experience = _archetype switch
+        int baseExperience = _archetype switch
         {
-            EnemyArchetype.Brute => 48,
-            EnemyArchetype.Hexer => 38,
-            EnemyArchetype.Guardian => 600,
-            _ => 25,
+            EnemyArchetype.Brute => 34,
+            EnemyArchetype.Hexer => 28,
+            EnemyArchetype.Guardian => 180,
+            EnemyArchetype.Berserker => 40,
+            EnemyArchetype.Shieldbearer => 44,
+            EnemyArchetype.Leaper => 38,
+            EnemyArchetype.Necromancer => 48,
+            EnemyArchetype.Vampire => 46,
+            EnemyArchetype.SkeletonArcher => 30,
+            EnemyArchetype.Ghoul => 24,
+            _ => 20,
         };
-        if (IsElite) experience *= 3;
+        float levelScale = 1f + (player.Progression.Level - 1) * 0.018f;
+        int experience = Mathf.Max(1, Mathf.RoundToInt(baseExperience * levelScale * _difficultyExperienceMultiplier));
+        if (IsElite) experience = Mathf.RoundToInt(experience * 2.4f);
         player.Progression.GainExperience(experience);
         int flaskCharges = _archetype switch
         {
             EnemyArchetype.Brute => 5,
             EnemyArchetype.Hexer => 4,
             EnemyArchetype.Guardian => PlayerController.MaxFlaskCharges,
+            EnemyArchetype.Berserker => 6,
+            EnemyArchetype.Shieldbearer => 6,
+            EnemyArchetype.Leaper => 5,
+            EnemyArchetype.Necromancer => 7,
             _ => 3,
         };
         player.RechargeFlask(IsElite ? Mathf.Max(flaskCharges, 8) : flaskCharges);
     }
 
-    private void SpawnDamageNumber(float amount, bool isBurn, Color? color = null)
+    private bool IsPlayerInFront()
+    {
+        if (_encounterTarget is not PlayerController player || !IsInstanceValid(player)) return false;
+        Vector3 toPlayer = player.GlobalPosition - GlobalPosition;
+        toPlayer.Y = 0f;
+        if (toPlayer.LengthSquared() < 0.01f) return true;
+        Vector3 forward = GlobalTransform.Basis.Z;
+        forward.Y = 0f;
+        return forward.Normalized().Dot(toPlayer.Normalized()) > 0.15f;
+    }
+
+    private void SpawnDamageNumber(float amount, bool isBurn, Color? color = null, bool isCritical = false)
     {
         var label = new Label3D();
-        label.Text = ((int)amount).ToString();
-        label.FontSize = 48;
+        label.Text = isCritical ? $"✦ {(int)amount}!" : ((int)amount).ToString();
+        label.FontSize = isCritical ? 62 : 48;
         label.Modulate = color ?? (isBurn ? new Color(1f, 0.5f, 0.1f) : Colors.White);
         label.OutlineSize = 8;
         label.Position = new Vector3(GD.Randf() * 0.6f - 0.3f, _bodyBaseY * 2f + 0.4f, 0);
@@ -804,6 +1317,36 @@ public partial class Enemy : CharacterBody3D
         shard.GlobalPosition = GlobalPosition + new Vector3(0f, 0.35f, 0f);
     }
 
+    private void SpawnFallenRemnant()
+    {
+        if (_archetype == EnemyArchetype.Guardian || _isTrainingDummy) return;
+        Node? scene = GetTree().CurrentScene;
+        if (scene == null) return;
+        var remnant = new FallenRemnant();
+        scene.AddChild(remnant);
+        remnant.GlobalPosition = GlobalPosition;
+    }
+
+    private bool IsProtectedByWarden()
+    {
+        if (_eliteModifier == EliteModifier.Warden) return false;
+        foreach (Node node in GetTree().GetNodesInGroup("enemies"))
+        {
+            if (node is Enemy enemy && enemy != this && IsInstanceValid(enemy) && enemy.Health > 0f && enemy._eliteModifier == EliteModifier.Warden && GlobalPosition.DistanceTo(enemy.GlobalPosition) <= 8f) return true;
+        }
+        return false;
+    }
+
+    private void SpawnMoltenDeathHazard()
+    {
+        Node? scene = GetTree().CurrentScene;
+        if (scene == null) return;
+        var hazard = new EliteDeathHazard();
+        hazard.Configure(3.25f, 1.15f, 58f * _difficultyDamageMultiplier);
+        scene.AddChild(hazard);
+        hazard.GlobalPosition = GlobalPosition;
+    }
+
     private void DropLoot()
     {
         var scene = GetTree().CurrentScene;
@@ -823,7 +1366,7 @@ public partial class Enemy : CharacterBody3D
             return;
         }
         int level = _encounterTarget is PlayerController player ? player.Progression.Level : 1;
-        float rarityBonus = (IsElite ? 0.24f : 0f) + _archetype switch
+        float rarityBonus = _difficultyRarityBonus + (IsElite ? 0.24f : 0f) + _archetype switch
         {
             EnemyArchetype.Brute => 0.08f,
             EnemyArchetype.Hexer => 0.06f,
@@ -834,7 +1377,8 @@ public partial class Enemy : CharacterBody3D
         for (int i = 0; i < drops; i++)
         {
             Vector3 scatter = new((i - (drops - 1) * 0.5f) * 0.9f, 0.12f, 0f);
-            LootDrop.Spawn(scene, GlobalPosition + scatter, ItemGenerator.Generate(level, rarityBonus));
+            HeroClass? preferredClass = _encounterTarget is PlayerController hero ? hero.Progression.HeroClass : null;
+            LootDrop.Spawn(scene, GlobalPosition + scatter, ItemGenerator.Generate(level, rarityBonus, preferredClass));
         }
     }
 
@@ -853,6 +1397,7 @@ public partial class Enemy : CharacterBody3D
             _ => 9f,
         };
         if (IsElite) damage *= _eliteModifier == EliteModifier.Stormbound ? 1.45f : 1.25f;
+        damage *= 1.25f * _difficultyDamageMultiplier;
         bolt.Configure(target, damage);
         if (_modelAnimator != null)
         {

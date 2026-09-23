@@ -21,9 +21,19 @@ public partial class Main : Node3D
         var skyMat = new ProceduralSkyMaterial();
         var sky = new Sky();
         sky.SkyMaterial = skyMat;
+        skyMat.SkyTopColor = new Color(0.008f, 0.012f, 0.028f);
+        skyMat.SkyHorizonColor = new Color(0.15f, 0.08f, 0.1f);
+        skyMat.GroundBottomColor = new Color(0.004f, 0.006f, 0.012f);
+        skyMat.GroundHorizonColor = new Color(0.09f, 0.055f, 0.065f);
         environment.Sky = sky;
         environment.AmbientLightSource = Environment.AmbientSource.Sky;
         environment.AmbientLightEnergy = 0.6f;
+        environment.FogEnabled = true;
+        environment.FogLightColor = new Color(0.17f, 0.2f, 0.27f);
+        environment.FogLightEnergy = 0.65f;
+        environment.FogDensity = 0.008f;
+        environment.FogHeight = 0f;
+        environment.FogHeightDensity = 0.08f;
         env.Environment = environment;
         AddChild(env);
 
@@ -34,7 +44,7 @@ public partial class Main : Node3D
 
         var groundMat = new StandardMaterial3D
         {
-            AlbedoColor = new Color(0.72f, 0.76f, 0.82f),
+            AlbedoColor = new Color(0.22f, 0.24f, 0.28f),
             AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/arena_rune_stone.png"),
             Metallic = 0.08f,
             Roughness = 0.9f,
@@ -49,6 +59,8 @@ public partial class Main : Node3D
         var groundCol = new CollisionShape3D { Shape = new BoxShape3D { Size = new Vector3(140f, 1f, 140f) } };
         groundCol.Position = new Vector3(0, -0.5f, 0);
         groundBody.AddChild(groundCol);
+
+        BuildNavigationSurface();
 
         BuildArenaMarkers();
         AddChild(new ArenaEnvironment());
@@ -93,7 +105,36 @@ public partial class Main : Node3D
         classSelection.Confirmed += birth.ConfirmClassChoice;
         AddChild(classSelection);
 
+        var titleScreen = new MainMenuUI();
+        titleScreen.Started += classSelection.ShowSelection;
+        AddChild(titleScreen);
+
+        var town = new TownHubController();
+        AddChild(town);
+        town.Setup(player, this);
+
         GD.Print("[Sigilwoven] World ready.");
+    }
+
+    private void BuildNavigationSurface()
+    {
+        // The arena is generated in code, so its walkable navigation surface is
+        // generated here as well. Keeping it inset from the physical boundary
+        // prevents agents from trying to path through the enclosing walls.
+        var navigationMesh = new NavigationMesh
+        {
+            Vertices = new Vector3[]
+            {
+                new(-62f, 0f, -62f),
+                new(62f, 0f, -62f),
+                new(62f, 0f, 62f),
+                new(-62f, 0f, 62f),
+            },
+            AgentRadius = 0.55f,
+            AgentHeight = 2.2f,
+        };
+        navigationMesh.AddPolygon(new int[] { 0, 1, 2, 3 });
+        AddChild(new NavigationRegion3D { NavigationMesh = navigationMesh });
     }
 
     private void BuildArenaMarkers()

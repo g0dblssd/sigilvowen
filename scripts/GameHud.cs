@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace Sigilwoven;
@@ -11,6 +12,7 @@ public partial class GameHud : CanvasLayer
     private readonly Label[] _skillCooldowns = new Label[10];
     private readonly PanelContainer[] _skillPanels = new PanelContainer[10];
     private readonly TextureRect[] _skillIcons = new TextureRect[10];
+    private readonly string[] _displayedSkillIds = new string[10];
     private VitalOrb? _healthOrb;
     private VitalOrb? _manaOrb;
     private Label? _healthText;
@@ -20,6 +22,11 @@ public partial class GameHud : CanvasLayer
     private Label? _combatMessage;
     private Label? _objective;
     private Label? _progression;
+    private Control? _bossFrame;
+    private ProgressBar? _bossBar;
+    private Label? _bossLabel;
+    private Label? _eliteThreat;
+    private Label? _nearbyLoot;
 
     public GameHud(PlayerController player, SkillCaster caster)
     {
@@ -31,6 +38,8 @@ public partial class GameHud : CanvasLayer
     public override void _Ready()
     {
         BuildObjectiveStrip();
+        BuildThreatBars();
+        BuildLootTracker();
         BuildBottomHud();
         BuildMinimap();
         RefreshProgression();
@@ -162,7 +171,7 @@ public partial class GameHud : CanvasLayer
 
         var hint = new Label
         {
-            Text = "LMB MOVE  •  1–6 / Z X C V CAST  •  Q FLASK  •  F LOOT  •  I INVENTORY  •  L LINKS  •  P PASSIVES",
+            Text = "LMB MOVE  •  RMB CLASS ATTACK  •  SPACE DODGE  •  1–6 / Z X C V CAST  •  Q FLASK  •  F LOOT  •  I INVENTORY  •  L LINKS  •  P PASSIVES",
             Position = new Vector2(205f, 155f),
             Size = new Vector2(590f, 15f),
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -171,6 +180,69 @@ public partial class GameHud : CanvasLayer
         };
         hint.AddThemeFontSizeOverride("font_size", 9);
         frame.AddChild(hint);
+    }
+
+    private void BuildThreatBars()
+    {
+        _bossFrame = new Control
+        {
+            AnchorLeft = 0.5f,
+            AnchorRight = 0.5f,
+            OffsetLeft = -310f,
+            OffsetRight = 310f,
+            OffsetTop = 48f,
+            OffsetBottom = 106f,
+            Visible = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        AddChild(_bossFrame);
+        _bossBar = new ProgressBar
+        {
+            Position = new Vector2(0f, 22f),
+            Size = new Vector2(620f, 22f),
+            MinValue = 0,
+            MaxValue = 100,
+            ShowPercentage = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _bossFrame.AddChild(_bossBar);
+        _bossLabel = new Label
+        {
+            Size = new Vector2(620f, 22f),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Modulate = new Color(1f, 0.62f, 0.22f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _bossLabel.AddThemeFontSizeOverride("font_size", 15);
+        _bossFrame.AddChild(_bossLabel);
+        _eliteThreat = new Label
+        {
+            AnchorLeft = 0.5f,
+            AnchorRight = 0.5f,
+            OffsetLeft = -260f,
+            OffsetRight = 260f,
+            OffsetTop = 108f,
+            OffsetBottom = 132f,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Modulate = new Color(1f, 0.82f, 0.22f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _eliteThreat.AddThemeFontSizeOverride("font_size", 12);
+        AddChild(_eliteThreat);
+    }
+
+    private void BuildLootTracker()
+    {
+        var panel = new PanelContainer
+        {
+            OffsetLeft = 18f, OffsetRight = 310f, OffsetTop = 76f, OffsetBottom = 184f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        panel.AddThemeStyleboxOverride("panel", MakePanel(new Color(0.01f, 0.018f, 0.038f, 0.88f), new Color(0.22f, 0.42f, 0.62f, 0.8f), 8));
+        AddChild(panel);
+        _nearbyLoot = new Label { Text = "NEARBY RELICS\n—", AutowrapMode = TextServer.AutowrapMode.WordSmart, Modulate = new Color(0.58f, 0.7f, 0.84f), MouseFilter = Control.MouseFilterEnum.Ignore };
+        _nearbyLoot.AddThemeFontSizeOverride("font_size", 11);
+        panel.AddChild(_nearbyLoot);
     }
 
     private void BuildFlask(Control frame)
@@ -209,7 +281,7 @@ public partial class GameHud : CanvasLayer
         string[] keys = { "1", "2", "3", "4", "5", "6", "Z", "X", "C", "V" };
         for (int i = 0; i < 10; i++)
         {
-            var panel = new PanelContainer { CustomMinimumSize = new Vector2(56f, 72f), MouseFilter = Control.MouseFilterEnum.Ignore };
+            var panel = new PanelContainer { CustomMinimumSize = new Vector2(56f, 72f), MouseFilter = Control.MouseFilterEnum.Stop };
             panel.AddThemeStyleboxOverride("panel", MakePanel(new Color(0.035f, 0.055f, 0.09f, 0.98f), new Color(0.22f, 0.38f, 0.55f), 5));
             bar.AddChild(panel);
             _skillPanels[i] = panel;
@@ -276,20 +348,91 @@ public partial class GameHud : CanvasLayer
             _flaskText.Modulate = _player.CanUseFlask ? new Color(1f, 0.72f, 0.55f) : new Color(0.42f, 0.35f, 0.38f);
         }
         if (_status != null) _status.Text = _player.GetCombatStatus();
+        RefreshThreatBars();
+        RefreshLootTracker();
 
         for (int i = 0; i < _skillNames.Length && i < _caster.Slots.Count; i++)
         {
             SkillData skill = _caster.Slots[i].Skill;
+            if (_displayedSkillIds[i] != skill.Id)
+            {
+                _displayedSkillIds[i] = skill.Id;
+                _skillIcons[i].Texture = SkillIconCatalog.Get(skill.Id);
+                Color elementColor = SkillVfx.ElementColor(skill.DamageElement);
+                _skillPanels[i].AddThemeStyleboxOverride("panel", MakePanel(new Color(0.02f, 0.03f, 0.055f, 0.98f), new Color(elementColor.R, elementColor.G, elementColor.B, 0.9f), 6));
+            }
             bool unlocked = _player.Progression.IsSkillUnlocked(skill.Id);
             float cooldown = _caster.GetCooldownRemaining(i);
             int linkCount = _caster.Slots[i].Links.Count;
             string linkedNames = linkCount == 0 ? "No links" : string.Join(", ", _caster.Slots[i].Links.ConvertAll(link => link.DisplayName));
             _skillNames[i].Text = linkCount > 0 ? $"{skill.DisplayName.ToUpperInvariant()} ◆{linkCount}" : skill.DisplayName.ToUpperInvariant();
             _skillNames[i].Modulate = linkCount > 0 ? new Color(0.55f, 0.92f, 1f) : Colors.White;
-            _skillNames[i].TooltipText = $"{skill.DisplayName}\n{skill.ManaCost:0} mana\nLinks: {linkedNames}";
-            _skillCooldowns[i].Text = !unlocked ? $"LV {_player.Progression.GetSkillRequiredLevel(skill.Id)}" : cooldown > 0f ? $"{cooldown:0.0}s" : $"{skill.ManaCost:0} MP";
+            int skillRank = _player.Progression.GetSkillRank(skill.Id);
+            _skillPanels[i].TooltipText = $"{skill.BuildDescription()}\nSkill rank: {skillRank}/20  •  damage mastery +{(skillRank - 1) * 5.5f:0.#}%\nLinks: {linkedNames}\n{(unlocked ? "Status: READY TO USE" : $"Unlocks at level {_player.Progression.GetSkillRequiredLevel(skill.Id)}")}";
+            _skillCooldowns[i].Text = !unlocked ? $"LV {_player.Progression.GetSkillRequiredLevel(skill.Id)}" : cooldown > 0f ? $"{cooldown:0.0}s" : $"R{skillRank}  {skill.ManaCost:0}MP";
             _skillCooldowns[i].Modulate = !unlocked ? new Color(0.5f, 0.35f, 0.4f) : cooldown > 0f ? new Color(1f, 0.42f, 0.25f) : new Color(0.35f, 1f, 0.62f);
             _skillPanels[i].Modulate = i == _caster.SelectedSlot ? new Color(1.12f, 1.12f, 1.12f) : unlocked ? Colors.White : new Color(0.45f, 0.45f, 0.48f);
+        }
+    }
+
+    private void RefreshLootTracker()
+    {
+        if (_nearbyLoot == null) return;
+        var drops = new List<(LootDrop Drop, float Distance)>();
+        foreach (Node node in GetTree().GetNodesInGroup("loot"))
+        {
+            if (node is not LootDrop drop || !IsInstanceValid(drop) || !drop.Visible) continue;
+            float distance = drop.GlobalPosition.DistanceTo(_player.GlobalPosition);
+            if (distance <= 16f) drops.Add((drop, distance));
+        }
+        drops.Sort((left, right) => left.Distance.CompareTo(right.Distance));
+        if (drops.Count == 0)
+        {
+            _nearbyLoot.Text = "NEARBY RELICS\n— none within 16m —";
+            _nearbyLoot.Modulate = new Color(0.42f, 0.5f, 0.62f);
+            return;
+        }
+        string text = "NEARBY RELICS  •  [F] PICKUP";
+        int count = Mathf.Min(3, drops.Count);
+        for (int i = 0; i < count; i++) text += $"\n◆ {drops[i].Drop.Item.Name}  PWR {drops[i].Drop.Item.GearScore}  {drops[i].Distance:0.0}m";
+        _nearbyLoot.Text = text;
+        _nearbyLoot.Modulate = drops[0].Drop.Item.RarityColor;
+    }
+
+    private void RefreshThreatBars()
+    {
+        Enemy? boss = null;
+        Enemy? nearestElite = null;
+        float nearestEliteDistance = 28f;
+        foreach (Node node in GetTree().GetNodesInGroup("enemies"))
+        {
+            if (node is not Enemy enemy || !IsInstanceValid(enemy) || enemy.IsTrainingDummy || enemy.Health <= 0f) continue;
+            if (enemy.Archetype == EnemyArchetype.Guardian)
+            {
+                boss = enemy;
+                break;
+            }
+            if (enemy.IsElite)
+            {
+                float distance = enemy.GlobalPosition.DistanceTo(_player.GlobalPosition);
+                if (distance < nearestEliteDistance)
+                {
+                    nearestEliteDistance = distance;
+                    nearestElite = enemy;
+                }
+            }
+        }
+        if (_bossFrame != null) _bossFrame.Visible = boss != null;
+        if (boss != null)
+        {
+            if (_bossBar != null) _bossBar.Value = boss.MaxHp <= 0f ? 0f : boss.Health / boss.MaxHp * 100f;
+            if (_bossLabel != null) _bossLabel.Text = $"{boss.DisplayTitle}  •  {Mathf.CeilToInt(boss.Health)} / {Mathf.CeilToInt(boss.MaxHp)}";
+        }
+        if (_eliteThreat != null)
+        {
+            _eliteThreat.Text = nearestElite == null
+                ? ""
+                : $"◆ {nearestElite.DisplayTitle}  •  {Mathf.CeilToInt(nearestElite.Health)} / {Mathf.CeilToInt(nearestElite.MaxHp)}  •  {nearestEliteDistance:0}m ◆";
         }
     }
 

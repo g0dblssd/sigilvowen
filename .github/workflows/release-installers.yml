@@ -21,6 +21,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_VERSION="$(sed -n 's/^config\/version="\([^"]*\)"/\1/p' project.godot)"
+          if [[ -z "$PROJECT_VERSION" || "$GITHUB_REF_NAME" != "v$PROJECT_VERSION" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match project version $PROJECT_VERSION" >&2
+            exit 1
+          fi
+          echo "PROJECT_VERSION=$PROJECT_VERSION" >> "$GITHUB_ENV"
+
       - name: Install .NET 9 SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -67,6 +78,7 @@ jobs:
           makensis \
             -DSOURCE_DIR="$GITHUB_WORKSPACE/build/windows" \
             -DOUTPUT_FILE="$GITHUB_WORKSPACE/build/installers/Sigilwoven-Setup-Windows-x86_64.exe" \
+            -DAPP_VERSION="$PROJECT_VERSION" \
             installer/windows/Sigilwoven.nsi
 
       - name: Create checksums
@@ -91,5 +103,18 @@ jobs:
             build/installers/SHA256SUMS.txt \
             build/packages/Sigilwoven-linux-x86_64.tar.gz \
             build/packages/Sigilwoven-windows-x86_64.zip \
-            --title "Sigilwoven Patch 039 — Linux & Windows installers" \
-            --notes-file logs/patch-039.md
+            --title "Sigilwoven $PROJECT_VERSION" \
+            --notes "$(cat <<'EOF'
+          ## Что изменилось
+
+          - Семь игровых классов с уникальными атаками, навыками, оружием и моделями.
+          - Новый главный экран, выбор класса и игровой хаб с NPC.
+          - Восемь уровней сложности подземелий и переработанный Descending Raid.
+          - Прогрессия до 300 уровня, Paragon и мастерство навыков.
+          - Улучшенные бой, уклонение, poise, сопротивления, критические удары и телеграфы атак.
+          - Переработанные инвентарь, экипировка, лут, элиты и интерфейс Link Forge.
+          - Новые противники, окружение кладбища, иконки и визуальные эффекты.
+
+          Скачайте установщик для своей системы или portable-архив ниже. Godot и .NET отдельно устанавливать не требуется.
+          EOF
+          )"

@@ -31,10 +31,28 @@ public class ResolvedCast
     public float GroundFireDuration;
     public float GroundFireRadius;
     public float DurationMultiplier = 1f;
+    public bool IsCritical;
+    public float CriticalMultiplier = 1f;
+    public float StaggerDamage;
+    public float ElementalPenetration;
 }
 
 public static class LinkSystem
 {
+    public static string? GetIncompatibilityReason(SkillData skill, SkillLinkData link)
+    {
+        bool damaging = skill.BaseDamage > 0f;
+        bool compatible = link.Id switch
+        {
+            "lightning_form" => skill.Type == SkillType.Summon,
+            "chain_extension" => skill.Type is SkillType.Projectile or SkillType.AreaAttack,
+            "persist_aura" => skill.Type is SkillType.Buff or SkillType.Summon,
+            "stun_impacts" or "execution_mark" or "fire_link" or "cold_touch" or "venom_seal" => damaging,
+            _ => true,
+        };
+        return compatible ? null : $"{link.DisplayName} is incompatible with {skill.DisplayName} ({skill.Type}).";
+    }
+
     // Core mechanic: combine a skill with its links into final cast params.
     public static ResolvedCast ResolveCast(SkillData skill, IEnumerable<SkillLinkData> links)
     {

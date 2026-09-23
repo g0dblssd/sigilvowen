@@ -118,12 +118,12 @@ public partial class SpawnSequence : Node
         _packsSpawned = true;
         _packDefinitions.AddRange(new[]
         {
-            CreateDefinition("EMBER RAIDERS", new Vector3(15f, 0f, 7f), 62f, EnemyArchetype.Raider, EnemyArchetype.Raider, EnemyArchetype.Brute),
-            CreateDefinition("VEIL HEXERS", new Vector3(-18f, 0f, -13f), 58f, EnemyArchetype.Hexer, EnemyArchetype.Hexer, EnemyArchetype.Raider),
-            CreateDefinition("BROKEN VOW", new Vector3(8f, 0f, 27f), 68f, EnemyArchetype.Brute, EnemyArchetype.Raider, EnemyArchetype.Hexer, EnemyArchetype.Raider),
-            CreateDefinition("ASHEN TEETH", new Vector3(34f, 0f, -22f), 74f, EnemyArchetype.Raider, EnemyArchetype.Brute, EnemyArchetype.Brute, EnemyArchetype.Raider),
-            CreateDefinition("PALE CIRCLE", new Vector3(-36f, 0f, 21f), 72f, EnemyArchetype.Hexer, EnemyArchetype.Hexer, EnemyArchetype.Brute, EnemyArchetype.Raider),
-            CreateDefinition("HOLLOW OATH", new Vector3(2f, 0f, -40f), 78f, EnemyArchetype.Brute, EnemyArchetype.Raider, EnemyArchetype.Hexer, EnemyArchetype.Raider, EnemyArchetype.Brute),
+            CreateDefinition("EMBER RAIDERS", new Vector3(15f, 0f, 7f), 62f, EnemyArchetype.Raider, EnemyArchetype.Ghoul, EnemyArchetype.Brute),
+            CreateDefinition("VEIL HEXERS", new Vector3(-18f, 0f, -13f), 58f, EnemyArchetype.Hexer, EnemyArchetype.SkeletonArcher, EnemyArchetype.Raider),
+            CreateDefinition("BROKEN VOW", new Vector3(8f, 0f, 27f), 68f, EnemyArchetype.Brute, EnemyArchetype.Berserker, EnemyArchetype.Leaper, EnemyArchetype.Ghoul),
+            CreateDefinition("ASHEN TEETH", new Vector3(34f, 0f, -22f), 74f, EnemyArchetype.Shieldbearer, EnemyArchetype.Brute, EnemyArchetype.Vampire, EnemyArchetype.Necromancer),
+            CreateDefinition("PALE CIRCLE", new Vector3(-36f, 0f, 21f), 72f, EnemyArchetype.Hexer, EnemyArchetype.Necromancer, EnemyArchetype.SkeletonArcher, EnemyArchetype.Vampire),
+            CreateDefinition("HOLLOW OATH", new Vector3(2f, 0f, -40f), 78f, EnemyArchetype.Brute, EnemyArchetype.Berserker, EnemyArchetype.Ghoul, EnemyArchetype.SkeletonArcher, EnemyArchetype.Vampire),
         });
         _initialPacksRemaining = _packDefinitions.Count;
         foreach (SurfacePackDefinition definition in _packDefinitions)
@@ -148,7 +148,11 @@ public partial class SpawnSequence : Node
         {
             float angle = Mathf.Tau * i / definition.Archetypes.Length;
             EliteModifier elite = i == 0 ? Enemy.RollEliteModifier() : EliteModifier.None;
-            pack.AddMember(definition.BaseHp, definition.Archetypes[i], new Vector3(Mathf.Cos(angle) * 1.8f, 0f, Mathf.Sin(angle) * 1.8f), elite);
+            Enemy enemy = pack.AddMember(definition.BaseHp, definition.Archetypes[i], new Vector3(Mathf.Cos(angle) * 1.8f, 0f, Mathf.Sin(angle) * 1.8f), elite);
+            float healthScale = 1f + (player.Progression.Level - 1) * 0.011f;
+            float damageScale = 1f + (player.Progression.Level - 1) * 0.0045f;
+            float rarityBonus = Mathf.Min(0.3f, player.Progression.Level / 1000f);
+            enemy.ApplyDifficulty(healthScale, damageScale, rarityBonus);
         }
         pack.Cleared += OnSurfacePackCleared;
         world.AddChild(pack);

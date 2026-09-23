@@ -34,6 +34,13 @@ public partial class PassiveTreeUI : CanvasLayer
             AnchorBottom = 0.96f,
             Visible = false,
         };
+        panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
+        {
+            BgColor = new Color(0.008f, 0.014f, 0.032f, 0.985f), BorderColor = new Color(0.3f, 0.62f, 0.92f),
+            BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2,
+            CornerRadiusTopLeft = 14, CornerRadiusTopRight = 14, CornerRadiusBottomLeft = 14, CornerRadiusBottomRight = 14,
+            ContentMarginLeft = 14f, ContentMarginRight = 14f, ContentMarginTop = 12f, ContentMarginBottom = 12f,
+        });
         _panel = panel;
         AddChild(panel);
 
@@ -63,6 +70,7 @@ public partial class PassiveTreeUI : CanvasLayer
 
         _summary = new Label();
         layout.AddChild(_summary);
+        layout.AddChild(new Label { Text = "DRAG THE CONSTELLATION TO PAN  •  CLICK A CONNECTED NODE TO ALLOCATE  •  LARGE GOLD CORES ARE MILESTONES", HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(0.48f, 0.58f, 0.72f) });
 
         var scroll = new ScrollContainer
         {
@@ -130,7 +138,7 @@ public partial class PassiveTreeUI : CanvasLayer
             child.QueueFree();
         }
         _treeCanvas = new PassiveTreeCanvas();
-        _treeCanvas.Setup(_progression);
+        _treeCanvas.Setup(_progression, _treeScroll);
         _treeScroll.AddChild(_treeCanvas);
         _treeScroll.ScrollHorizontal = 1500;
         _treeScroll.ScrollVertical = 1500;
@@ -175,6 +183,10 @@ public partial class PassiveTreeCanvas : Control
     private PanelContainer? _hoverPanel;
     private Label? _hoverLabel;
     private int _hoveredNodeId = -1;
+    private ScrollContainer? _scroll;
+    private bool _dragging;
+    private bool _dragMoved;
+    private Vector2 _dragStart;
     private static readonly Color[] StatColors =
     {
         new(1f, 0.35f, 0.18f),
@@ -183,9 +195,10 @@ public partial class PassiveTreeCanvas : Control
         new(0.72f, 0.38f, 1f),
     };
 
-    public void Setup(PlayerProgression progression)
+    public void Setup(PlayerProgression progression, ScrollContainer scroll)
     {
         _progression = progression;
+        _scroll = scroll;
         CustomMinimumSize = new Vector2(4000f, 4000f);
         MouseFilter = MouseFilterEnum.Stop;
     }
@@ -296,6 +309,13 @@ public partial class PassiveTreeCanvas : Control
     {
         if (@event is InputEventMouseMotion motion)
         {
+            if (_dragging && _scroll != null)
+            {
+                if (motion.Position.DistanceTo(_dragStart) > 5f) _dragMoved = true;
+                _scroll.ScrollHorizontal -= Mathf.RoundToInt(motion.Relative.X);
+                _scroll.ScrollVertical -= Mathf.RoundToInt(motion.Relative.Y);
+                AcceptEvent();
+            }
             int found = FindNodeAt(motion.Position);
             if (found != _hoveredNodeId)
             {
@@ -310,12 +330,17 @@ public partial class PassiveTreeCanvas : Control
                     Mathf.Clamp(motion.Position.Y + 18f, 0f, Size.Y - 130f));
             }
         }
-        else if (@event is InputEventMouseButton click
-            && click.ButtonIndex == MouseButton.Left
-            && click.Pressed
-            && _hoveredNodeId >= 0)
+        else if (@event is InputEventMouseButton click && click.ButtonIndex == MouseButton.Left && click.Pressed)
         {
-            Allocate(_hoveredNodeId);
+            _dragging = true;
+            _dragMoved = false;
+            _dragStart = click.Position;
+            AcceptEvent();
+        }
+        else if (@event is InputEventMouseButton release && release.ButtonIndex == MouseButton.Left && !release.Pressed && _dragging)
+        {
+            _dragging = false;
+            if (!_dragMoved && _hoveredNodeId >= 0) Allocate(_hoveredNodeId);
             AcceptEvent();
         }
     }
