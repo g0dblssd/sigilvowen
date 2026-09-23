@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dxfj4v84fep7b"
-path="res://.godot/imported/aether-forged-metal-v1.png-d570171c1a4b5b74d746202aadf35893.ctex"
+uid="uid://g4ygefpju8ee"
+path="res://.godot/imported/main-menu-background-v2.png-6c1200f2393eadf9cd836d68dcd8b173.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/aether-forged-metal-v1.png"
-dest_files=["res://.godot/imported/aether-forged-metal-v1.png-d570171c1a4b5b74d746202aadf35893.ctex"]
+source_file="res://assets/ui/main-menu-background-v2.png"
+dest_files=["res://.godot/imported/main-menu-background-v2.png-6c1200f2393eadf9cd836d68dcd8b173.ctex"]
 
 [params]
 

@@ -34,13 +34,8 @@ public partial class PassiveTreeUI : CanvasLayer
             AnchorBottom = 0.96f,
             Visible = false,
         };
-        panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
-        {
-            BgColor = new Color(0.008f, 0.014f, 0.032f, 0.985f), BorderColor = new Color(0.3f, 0.62f, 0.92f),
-            BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2,
-            CornerRadiusTopLeft = 14, CornerRadiusTopRight = 14, CornerRadiusBottomLeft = 14, CornerRadiusBottomRight = 14,
-            ContentMarginLeft = 14f, ContentMarginRight = 14f, ContentMarginTop = 12f, ContentMarginBottom = 12f,
-        });
+        UiTheme.Apply(panel);
+        panel.AddThemeStyleboxOverride("panel", UiTheme.Panel(14, UiTheme.Bronze));
         _panel = panel;
         AddChild(panel);
 
@@ -51,7 +46,8 @@ public partial class PassiveTreeUI : CanvasLayer
 
         var title = new Label { Text = "SIGIL CONSTELLATION  //  1009 PASSIVE NODES" };
         title.AddThemeFontSizeOverride("font_size", 19);
-        title.Modulate = new Color(0.55f, 0.85f, 1f);
+        title.Modulate = UiTheme.Text;
+        title.AddThemeFontOverride("font", GD.Load<Font>("res://assets/fonts/Cinzel-Variable.ttf"));
         title.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         header.AddChild(title);
 

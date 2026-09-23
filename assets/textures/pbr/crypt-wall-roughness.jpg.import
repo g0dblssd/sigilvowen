@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://clwgada8tnpjy"
-path="res://.godot/imported/hero_runebound_armor-v1.png-ac661abe6a998dbac5bdfab2ee5e3c0e.ctex"
+uid="uid://bmx3jw3nd4yip"
+path="res://.godot/imported/crypt-wall-roughness.jpg-898595078f0da3828bfcb6b88f8bae95.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/hero_runebound_armor-v1.png"
-dest_files=["res://.godot/imported/hero_runebound_armor-v1.png-ac661abe6a998dbac5bdfab2ee5e3c0e.ctex"]
+source_file="res://assets/textures/pbr/crypt-wall-roughness.jpg"
+dest_files=["res://.godot/imported/crypt-wall-roughness.jpg-898595078f0da3828bfcb6b88f8bae95.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

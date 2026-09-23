@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://doxuocwyy378y"
-path="res://.godot/imported/raider_armor.png-9ad34055c713501b2b285e34fca5375f.ctex"
+uid="uid://csmadyed10o7u"
+path="res://.godot/imported/class-portrait-atlas-v2.png-619a60faed8772a78aebaaa6a78555e8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/raider_armor.png"
-dest_files=["res://.godot/imported/raider_armor.png-9ad34055c713501b2b285e34fca5375f.ctex"]
+source_file="res://assets/ui/class-portrait-atlas-v2.png"
+dest_files=["res://.godot/imported/class-portrait-atlas-v2.png-619a60faed8772a78aebaaa6a78555e8.ctex"]
 
 [params]
 

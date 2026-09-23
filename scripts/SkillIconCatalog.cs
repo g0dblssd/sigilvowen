@@ -12,11 +12,11 @@ public static class SkillIconCatalog
 
     public static Texture2D Get(string skillId)
     {
-        _atlas ??= GD.Load<Texture2D>("res://assets/ui/skill-icon-atlas-v2.png");
+        _atlas ??= GD.Load<Texture2D>("res://assets/ui/skill-icon-atlas-v3.png");
         int index = SkillCatalog.All.FindIndex(skill => skill.Id == skillId);
         if (index >= 35 && index < 47)
         {
-            _classAtlas ??= GD.Load<Texture2D>("res://assets/ui/class-skill-icon-atlas-v1.png");
+            _classAtlas ??= GD.Load<Texture2D>("res://assets/ui/class-skill-icon-atlas-v2.png");
             int classIndex = index - 35;
             float width = _classAtlas.GetWidth() / 4f;
             float height = _classAtlas.GetHeight() / 3f;

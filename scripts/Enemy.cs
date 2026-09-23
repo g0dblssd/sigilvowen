@@ -245,17 +245,11 @@ public partial class Enemy : CharacterBody3D
                 EnemyArchetype.Vampire => new Color(0.78f, 0.08f, 0.16f),
                 _ => Colors.White,
             };
-        _mat = new StandardMaterial3D
-        {
-            AlbedoColor = _normalColor,
-            AlbedoTexture = _isTrainingDummy ? null : GD.Load<Texture2D>("res://assets/textures/aether-forged-metal-v1.png"),
-            Roughness = 0.78f,
-            Metallic = _isTrainingDummy ? 0f : 0.24f,
-            EmissionEnabled = true,
-            Emission = _isTrainingDummy ? new Color(0.2f, 0.12f, 0.03f) : new Color(0.32f, 0.018f, 0.008f),
-            EmissionEnergyMultiplier = 0.7f,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
-        };
+        _mat = _isTrainingDummy ? new StandardMaterial3D { Roughness = 0.94f } : RealisticMaterialCatalog.ForgedIron();
+        _mat.AlbedoColor = _normalColor;
+        _mat.EmissionEnabled = true;
+        _mat.Emission = _isTrainingDummy ? new Color(0.08f, 0.045f, 0.015f) : new Color(0.12f, 0.008f, 0.004f);
+        _mat.EmissionEnergyMultiplier = 0.3f;
         Vector3 bodySize = _archetype switch
         {
             EnemyArchetype.Brute => new Vector3(1.28f, 2.35f, 1.18f),
@@ -980,7 +974,7 @@ public partial class Enemy : CharacterBody3D
             var mirrorMaterial = new StandardMaterial3D
             {
                 AlbedoColor = new Color(0.55f, 0.22f, 0.95f, 0.72f),
-                AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/aether-forged-metal-v1.png"),
+                AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/pbr/forged-iron-albedo.jpg"),
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                 Metallic = 0.9f,
                 Roughness = 0.12f,

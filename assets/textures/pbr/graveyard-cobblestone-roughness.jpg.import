@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b7jylsu2i1g7w"
-path="res://.godot/imported/skill-icon-atlas-v2.png-2e7dcab65948dc810bc7fbe0434a175b.ctex"
+uid="uid://c208vhha1shu6"
+path="res://.godot/imported/graveyard-cobblestone-roughness.jpg-1fe21255258ad2f81b6d099c66705020.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/skill-icon-atlas-v2.png"
-dest_files=["res://.godot/imported/skill-icon-atlas-v2.png-2e7dcab65948dc810bc7fbe0434a175b.ctex"]
+source_file="res://assets/textures/pbr/graveyard-cobblestone-roughness.jpg"
+dest_files=["res://.godot/imported/graveyard-cobblestone-roughness.jpg-1fe21255258ad2f81b6d099c66705020.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

@@ -43,6 +43,7 @@ public partial class DungeonController : Node
         AddChild(layer);
 
         var openButton = new Button { Text = "DUNGEONS  [D]", AnchorRight = 1f, OffsetLeft = -235f, OffsetRight = -18f, OffsetTop = 205f, OffsetBottom = 245f };
+        UiTheme.Apply(openButton);
         openButton.Pressed += ToggleDungeonTab;
         layer.AddChild(openButton);
 
@@ -51,20 +52,16 @@ public partial class DungeonController : Node
             AnchorLeft = 0.16f, AnchorRight = 0.84f, AnchorTop = 0.12f, AnchorBottom = 0.88f,
             Visible = false,
         };
-        _panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
-        {
-            BgColor = new Color(0.01f, 0.018f, 0.04f, 0.97f), BorderColor = new Color(0.24f, 0.62f, 0.9f),
-            BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2,
-            CornerRadiusTopLeft = 10, CornerRadiusTopRight = 10, CornerRadiusBottomLeft = 10, CornerRadiusBottomRight = 10,
-            ContentMarginLeft = 12f, ContentMarginRight = 12f, ContentMarginTop = 10f, ContentMarginBottom = 10f,
-        });
+        UiTheme.Apply(_panel);
+        _panel.AddThemeStyleboxOverride("panel", UiTheme.Panel(14, UiTheme.Bronze));
         layer.AddChild(_panel);
 
         var content = new VBoxContainer();
         _panel.AddChild(content);
         var title = new Label { Text = "ECHOING VAULT  //  DESCENDING RAID" };
         title.AddThemeFontSizeOverride("font_size", 18);
-        title.Modulate = new Color(0.55f, 0.85f, 1f);
+        title.Modulate = UiTheme.Text;
+        title.AddThemeFontOverride("font", GD.Load<Font>("res://assets/fonts/Cinzel-Variable.ttf"));
         content.AddChild(title);
 
         var description = new Label

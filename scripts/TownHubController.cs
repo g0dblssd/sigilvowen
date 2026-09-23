@@ -83,10 +83,12 @@ public partial class TownHubController : Node3D
     private void BuildUi()
     {
         var layer = new CanvasLayer { Layer = 75 }; AddChild(layer);
-        _prompt = new Label { AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.73f, AnchorBottom = 0.73f, OffsetLeft = -230f, OffsetRight = 230f, OffsetTop = -22f, OffsetBottom = 22f, HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(1f, 0.78f, 0.3f), Visible = false };
+        _prompt = new Label { AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.73f, AnchorBottom = 0.73f, OffsetLeft = -230f, OffsetRight = 230f, OffsetTop = -22f, OffsetBottom = 22f, HorizontalAlignment = HorizontalAlignment.Center, Modulate = UiTheme.Bronze, Visible = false };
+        UiTheme.Apply(_prompt);
         _prompt.AddThemeFontSizeOverride("font_size", 18); layer.AddChild(_prompt);
         _panel = new PanelContainer { AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.5f, AnchorBottom = 0.5f, OffsetLeft = -390f, OffsetRight = 390f, OffsetTop = -280f, OffsetBottom = 280f, Visible = false };
-        _panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.01f, 0.016f, 0.032f, 0.985f), BorderColor = new Color(0.72f, 0.48f, 0.2f), BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2, ContentMarginLeft = 24f, ContentMarginRight = 24f, ContentMarginTop = 20f, ContentMarginBottom = 20f, CornerRadiusTopLeft = 10, CornerRadiusTopRight = 10, CornerRadiusBottomLeft = 10, CornerRadiusBottomRight = 10 });
+        UiTheme.Apply(_panel);
+        _panel.AddThemeStyleboxOverride("panel", UiTheme.Panel(24, UiTheme.Bronze));
         layer.AddChild(_panel); _content = new VBoxContainer(); _content.AddThemeConstantOverride("separation", 12); _panel.AddChild(_content);
     }
 

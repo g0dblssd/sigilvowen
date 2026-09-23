@@ -30,14 +30,7 @@ public partial class WardenPylon : CharacterBody3D
         CollisionMask = 0;
         AddToGroup("warden_pylons");
 
-        var metal = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.38f, 0.46f, 0.5f),
-            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/aether-forged-metal-v1.png"),
-            Metallic = 0.88f,
-            Roughness = 0.28f,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
-        };
+        var metal = RealisticMaterialCatalog.ForgedIron();
         var ward = new StandardMaterial3D
         {
             AlbedoColor = new Color(0.08f, 1f, 0.58f),

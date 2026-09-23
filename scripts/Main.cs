@@ -27,7 +27,11 @@ public partial class Main : Node3D
         skyMat.GroundHorizonColor = new Color(0.09f, 0.055f, 0.065f);
         environment.Sky = sky;
         environment.AmbientLightSource = Environment.AmbientSource.Sky;
-        environment.AmbientLightEnergy = 0.6f;
+        environment.AmbientLightEnergy = 0.48f;
+        environment.TonemapMode = Environment.ToneMapper.Filmic;
+        environment.SsaoEnabled = true;
+        environment.SsaoRadius = 2.2f;
+        environment.SsaoIntensity = 2.1f;
         environment.FogEnabled = true;
         environment.FogLightColor = new Color(0.17f, 0.2f, 0.27f);
         environment.FogLightEnergy = 0.65f;
@@ -42,15 +46,7 @@ public partial class Main : Node3D
         groundBody.CollisionMask = 0;
         AddChild(groundBody);
 
-        var groundMat = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.72f, 0.76f, 0.82f),
-            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/graveyard-ground-v2.png"),
-            Metallic = 0.08f,
-            Roughness = 0.9f,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
-            Uv1Scale = new Vector3(14f, 14f, 1f),
-        };
+        var groundMat = RealisticMaterialCatalog.GraveyardGround();
         var groundMesh = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(140f, 1f, 140f) } };
         groundMesh.SetSurfaceOverrideMaterial(0, groundMat);
         groundMesh.Position = new Vector3(0, -0.5f, 0);

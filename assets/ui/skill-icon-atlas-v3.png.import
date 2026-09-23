@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://213v6u8cm8g0"
-path="res://.godot/imported/skill-icon-atlas-v1.png-e91e52e03e1428b92b8926c703fca0a1.ctex"
+uid="uid://q23m50vhl7cu"
+path="res://.godot/imported/skill-icon-atlas-v3.png-85bdaf715b7918a333fd8c7b97899ca0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/skill-icon-atlas-v1.png"
-dest_files=["res://.godot/imported/skill-icon-atlas-v1.png-e91e52e03e1428b92b8926c703fca0a1.ctex"]
+source_file="res://assets/ui/skill-icon-atlas-v3.png"
+dest_files=["res://.godot/imported/skill-icon-atlas-v3.png-85bdaf715b7918a333fd8c7b97899ca0.ctex"]
 
 [params]
 

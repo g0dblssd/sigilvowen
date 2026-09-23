@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cb8gxbqotjqx1"
-path="res://.godot/imported/crypt-masonry-v1.png-97496fc4375940db0c08b8e5183a1d8f.ctex"
+uid="uid://byxikk1mtm27m"
+path="res://.godot/imported/class-skill-icon-atlas-v2.png-eeea8f7411f153bcbaeacdcb3c6181cd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/crypt-masonry-v1.png"
-dest_files=["res://.godot/imported/crypt-masonry-v1.png-97496fc4375940db0c08b8e5183a1d8f.ctex"]
+source_file="res://assets/ui/class-skill-icon-atlas-v2.png"
+dest_files=["res://.godot/imported/class-skill-icon-atlas-v2.png-eeea8f7411f153bcbaeacdcb3c6181cd.ctex"]
 
 [params]
 

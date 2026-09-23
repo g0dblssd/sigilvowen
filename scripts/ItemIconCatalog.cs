@@ -9,7 +9,7 @@ public static class ItemIconCatalog
 
     public static Texture2D Get(EquipmentSlot slot)
     {
-        _atlas ??= GD.Load<Texture2D>("res://assets/ui/equipment-icon-atlas-v1.png");
+        _atlas ??= GD.Load<Texture2D>("res://assets/ui/equipment-icon-atlas-v2.png");
         int index = slot switch
         {
             EquipmentSlot.Weapon => 0,

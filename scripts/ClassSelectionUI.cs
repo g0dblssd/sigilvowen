@@ -11,8 +11,8 @@ public partial class ClassSelectionUI : CanvasLayer
     private readonly Button[] _cards = new Button[Enum.GetValues<HeroClass>().Length];
     private readonly Color[] _colors =
     {
-        new(0.15f, 0.72f, 1f), new(0.68f, 0.3f, 1f), new(0.25f, 0.9f, 0.55f), new(1f, 0.22f, 0.12f),
-        new(0.18f, 0.9f, 0.82f), new(0.46f, 0.3f, 0.85f), new(1f, 0.78f, 0.28f),
+        new(0.38f, 0.46f, 0.5f), new(0.42f, 0.35f, 0.48f), new(0.33f, 0.42f, 0.31f), new(0.48f, 0.28f, 0.23f),
+        new(0.36f, 0.43f, 0.4f), new(0.32f, 0.3f, 0.38f), new(0.56f, 0.46f, 0.28f),
     };
     private Label? _detail;
     public event Action? Confirmed;
@@ -41,12 +41,14 @@ public partial class ClassSelectionUI : CanvasLayer
     private void BuildScreen()
     {
         var shade = new ColorRect { AnchorRight = 1f, AnchorBottom = 1f, Color = new Color(0.004f, 0.008f, 0.018f, 0.985f), MouseFilter = Control.MouseFilterEnum.Stop };
+        UiTheme.Apply(shade);
         AddChild(shade);
         var window = new PanelContainer { AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.5f, AnchorBottom = 0.5f, OffsetLeft = -570f, OffsetRight = 570f, OffsetTop = -390f, OffsetBottom = 390f };
-        window.AddThemeStyleboxOverride("panel", PanelStyle(new Color(0.24f, 0.56f, 0.78f)));
+        window.AddThemeStyleboxOverride("panel", UiTheme.Panel(22, UiTheme.Bronze));
         shade.AddChild(window);
         var root = new VBoxContainer(); root.AddThemeConstantOverride("separation", 10); window.AddChild(root);
-        var title = new Label { Text = "CHOOSE YOUR WOVEN PATH", HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(0.68f, 0.9f, 1f) };
+        var title = new Label { Text = "CHOOSE YOUR WOVEN PATH", HorizontalAlignment = HorizontalAlignment.Center, Modulate = UiTheme.Text };
+        title.AddThemeFontOverride("font", GD.Load<Font>("res://assets/fonts/Cinzel-Variable.ttf"));
         title.AddThemeFontSizeOverride("font_size", 29); root.AddChild(title);
         root.AddChild(new Label { Text = "Seven classes. Skills awaken across levels 1–240, grow through use, and Paragon begins at 300.", HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(0.68f, 0.7f, 0.78f) });
 
@@ -60,7 +62,7 @@ public partial class ClassSelectionUI : CanvasLayer
         AddCard(grid, HeroClass.Shadowstalker, "SHADOWSTALKER", "Daggers • marks • crits");
         AddCard(grid, HeroClass.Templar, "TEMPLAR", "Hammer • wards • judgment");
 
-        _detail = new Label { HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(1f, 0.8f, 0.34f) };
+        _detail = new Label { HorizontalAlignment = HorizontalAlignment.Center, Modulate = UiTheme.Bronze };
         _detail.AddThemeFontSizeOverride("font_size", 15); root.AddChild(_detail);
         var confirm = new Button { Text = "BIND THIS PATH  //  BEGIN THE AWAKENING", CustomMinimumSize = new Vector2(0f, 48f) };
         confirm.AddThemeFontSizeOverride("font_size", 18); confirm.Pressed += ConfirmSelection; root.AddChild(confirm);
@@ -85,7 +87,7 @@ public partial class ClassSelectionUI : CanvasLayer
 
     private static AtlasTexture Portrait(int index)
     {
-        Texture2D atlas = GD.Load<Texture2D>("res://assets/ui/class-portrait-atlas-v1.png");
+        Texture2D atlas = GD.Load<Texture2D>("res://assets/ui/class-portrait-atlas-v2.png");
         float cellWidth = atlas.GetWidth() / 4f;
         float cellHeight = atlas.GetHeight() / 2f;
         return new AtlasTexture { Atlas = atlas, Region = new Rect2((index % 4) * cellWidth, (index / 4) * cellHeight, cellWidth, cellHeight) };
@@ -105,7 +107,7 @@ public partial class ClassSelectionUI : CanvasLayer
     private void SelectClass(HeroClass heroClass)
     {
         _selected = heroClass;
-        for (int i = 0; i < _cards.Length; i++) if (_cards[i] != null) _cards[i].SelfModulate = i == (int)heroClass ? Colors.White : new Color(0.43f, 0.43f, 0.46f);
+        for (int i = 0; i < _cards.Length; i++) if (_cards[i] != null) _cards[i].SelfModulate = i == (int)heroClass ? Colors.White : new Color(0.36f, 0.35f, 0.33f);
         if (_detail != null) _detail.Text = $"SELECTED  //  {heroClass.ToString().ToUpperInvariant()}  —  {BuildClassTooltip(heroClass)}";
     }
 
@@ -127,8 +129,8 @@ public partial class ClassSelectionUI : CanvasLayer
 
     private static StyleBoxFlat CardStyle(Color color, float brightness, int border) => new()
     {
-        BgColor = new Color(color.R * brightness, color.G * brightness, color.B * brightness, 0.99f), BorderColor = new Color(color.R, color.G, color.B, 0.72f),
+        BgColor = new Color(0.026f + brightness * 0.12f, 0.025f + brightness * 0.1f, 0.023f + brightness * 0.08f, 0.99f), BorderColor = new Color(color.R, color.G, color.B, 0.76f),
         BorderWidthLeft = border, BorderWidthTop = border, BorderWidthRight = border, BorderWidthBottom = border,
-        CornerRadiusTopLeft = 9, CornerRadiusTopRight = 9, CornerRadiusBottomLeft = 9, CornerRadiusBottomRight = 9,
+        CornerRadiusTopLeft = 1, CornerRadiusTopRight = 1, CornerRadiusBottomLeft = 1, CornerRadiusBottomRight = 1,
     };
 }

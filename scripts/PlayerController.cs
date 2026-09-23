@@ -312,17 +312,11 @@ public partial class PlayerController : CharacterBody3D
             HeroClass.Warden => new Color(0.2f, 0.9f, 0.58f),
             _ => new Color(0.1f, 0.72f, 1f),
         };
-        _bodyMaterial = new StandardMaterial3D
-        {
-            AlbedoColor = _bodyBaseColor,
-            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/hero_runebound_armor-v1.png"),
-            Metallic = 0.65f,
-            Roughness = 0.42f,
-            EmissionEnabled = true,
-            Emission = classAccent * 0.35f,
-            EmissionEnergyMultiplier = 0.8f,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
-        };
+        _bodyMaterial = RealisticMaterialCatalog.ForgedIron();
+        _bodyMaterial.AlbedoColor = _bodyBaseColor;
+        _bodyMaterial.EmissionEnabled = true;
+        _bodyMaterial.Emission = classAccent * 0.18f;
+        _bodyMaterial.EmissionEnergyMultiplier = 0.35f;
         var darkMetal = new StandardMaterial3D { AlbedoColor = new Color(0.055f, 0.07f, 0.1f), Metallic = 0.85f, Roughness = 0.3f };
         var runeMaterial = new StandardMaterial3D { AlbedoColor = classAccent, EmissionEnabled = true, Emission = classAccent, EmissionEnergyMultiplier = 3.2f, Metallic = 0.35f };
 

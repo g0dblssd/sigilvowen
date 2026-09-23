@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ua1e50tw3di3"
-path="res://.godot/imported/equipment-icon-atlas-v1.png-cffda5221d16de71dc3ebdee8bd073ee.ctex"
+uid="uid://buksp85gutatb"
+path="res://.godot/imported/equipment-icon-atlas-v2.png-2beb2d6d9fdc863e72f147c92ad2a9c1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/equipment-icon-atlas-v1.png"
-dest_files=["res://.godot/imported/equipment-icon-atlas-v1.png-cffda5221d16de71dc3ebdee8bd073ee.ctex"]
+source_file="res://assets/ui/equipment-icon-atlas-v2.png"
+dest_files=["res://.godot/imported/equipment-icon-atlas-v2.png-2beb2d6d9fdc863e72f147c92ad2a9c1.ctex"]
 
 [params]
 

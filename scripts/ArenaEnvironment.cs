@@ -30,15 +30,7 @@ public partial class ArenaEnvironment : Node3D
 
     private void BuildBoundary()
     {
-        var wallMaterial = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.72f, 0.78f, 0.9f),
-            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/crypt-masonry-v1.png"),
-            Roughness = 0.94f,
-            Metallic = 0.06f,
-            TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
-            Uv1Scale = new Vector3(5f, 1f, 1f),
-        };
+        var wallMaterial = RealisticMaterialCatalog.CryptWall();
 
         CreateWall(new Vector3(0f, 0f, -64f), new Vector3(128f, 1.4f, 1f), wallMaterial);
         CreateWall(new Vector3(0f, 0f, 64f), new Vector3(128f, 1.4f, 1f), wallMaterial);
@@ -129,8 +121,9 @@ public partial class ArenaEnvironment : Node3D
     private void BuildDarkFantasySetDressing()
     {
         var rng = new RandomNumberGenerator { Seed = 45045 };
-        var bark = new StandardMaterial3D { AlbedoColor = new Color(0.055f, 0.042f, 0.048f), Roughness = 1f };
-        var stone = new StandardMaterial3D { AlbedoColor = new Color(0.16f, 0.17f, 0.2f), Roughness = 0.96f };
+        var bark = RealisticMaterialCatalog.GraveyardGround(2.5f);
+        bark.AlbedoColor = new Color(0.12f, 0.085f, 0.06f);
+        var stone = RealisticMaterialCatalog.CryptWall(2f);
         var ember = new StandardMaterial3D { AlbedoColor = new Color(0.45f, 0.08f, 0.025f), EmissionEnabled = true, Emission = new Color(1f, 0.12f, 0.015f), EmissionEnergyMultiplier = 4f };
 
         AddImportedDecor("crypt-large.glb", new Vector3(-18f, 0f, 35f), 2.3f, 18f);

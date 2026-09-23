@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d0p6vhp573t02"
-path="res://.godot/imported/arena_rune_stone.png-41c39424ab24d5d8877209b6892122cd.ctex"
+uid="uid://6c41u543u04k"
+path="res://.godot/imported/graveyard-cobblestone-normal.jpg-3c7eada24231d0dbb7e0ea53385681d7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/arena_rune_stone.png"
-dest_files=["res://.godot/imported/arena_rune_stone.png-41c39424ab24d5d8877209b6892122cd.ctex"]
+source_file="res://assets/textures/pbr/graveyard-cobblestone-normal.jpg"
+dest_files=["res://.godot/imported/graveyard-cobblestone-normal.jpg-3c7eada24231d0dbb7e0ea53385681d7.ctex"]
 
 [params]
 
@@ -21,9 +21,9 @@ compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

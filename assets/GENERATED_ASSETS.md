@@ -1,58 +1,33 @@
 # Generated visual assets
 
-Generated on 2026-09-22 with the built-in OpenAI image generation tool. These
-assets are original project material for Sigilwoven; prompts explicitly avoid
-recognizable third-party game icons and franchise artwork.
+Generated on 2026-09-23 with the built-in OpenAI image generation tool. These
+assets are original project material for Sigilwoven. All prompts required a
+mature photorealistic treatment and excluded text, logos, cartoons, anime,
+neon outlines and glossy mobile-game styling.
 
-## Skill icon atlas v1
+## Realistic interface set
 
-Files:
+- `assets/ui/main-menu-background-v2.png` — cinematic 16:9 ruined gothic
+  fortress and graveyard, physically plausible stone, mud, iron, cloth and fog.
+- `assets/ui/class-portrait-atlas-v2.png` — strict 4×2 atlas of seven adult,
+  human-proportioned class portraits and one empty hooded silhouette.
+- `assets/ui/equipment-icon-atlas-v2.png` — strict 4×4 museum-style artifact
+  atlas using weathered steel, leather, wood, cloth and bone.
+- `assets/ui/skill-icon-atlas-v3.png` — strict 6×6 atlas of cinematic combat
+  phenomena grounded in real environments and materials.
+- `assets/ui/class-skill-icon-atlas-v2.png` — strict 4×3 atlas of photographed
+  class abilities with restrained occult effects.
+- `assets/ui/skill_icons/icon-00.png` … `icon-15.png` — mechanically cropped
+  209×209 cells from `skill-icon-atlas-v3.png` for initial HUD population.
 
-- `assets/ui/skill-icon-atlas-v1.png`
-- `assets/ui/skill_icons/icon-00.png` … `icon-15.png`
+Final prompt family:
 
-Final prompt:
+> Photorealistic, mature dark-fantasy game asset with believable adult anatomy,
+> physically accurate worn steel, leather, cloth, stone and atmospheric effects;
+> low-key cinematic lighting; charcoal, tarnished metal and muted earth palette;
+> strict equal-cell atlas where applicable. No text, logo, watermark, cartoon,
+> anime, painterly rendering, neon, candy colors or toy-like proportions.
 
-> Use case: stylized-concept. Asset type: 4x4 game skill icon atlas for a dark
-> fantasy isometric action RPG. Create exactly sixteen distinct square spell
-> icons arranged in a perfectly aligned 4 by 4 grid with equal cells and thin
-> dark gutters: meteor, lightning elemental, chain lightning, bone golem,
-> flame dash, haste aura, fireball, frost bolt, ice nova, aether pulse, poison
-> fang, stone armor, phoenix, thunderstorm, toxic cloud, arc surge. Polished
-> hand-painted dark fantasy game UI icons, crisp readable silhouettes at 64x64,
-> subtle beveled obsidian frame inside each cell. Ember orange, aether cyan,
-> storm violet, frost blue, venom green, bone ivory; deep near-black
-> backgrounds. One centered symbol per cell, consistent scale, exact
-> orthographic front view, no overlap. No text, letters, numbers, logos or
-> watermark. Avoid recognizable Diablo or Path of Exile icons.
-
-The generated 1254×1254 atlas was preserved and mechanically divided into 16
-individual PNG files for Godot UI use.
-
-## Environment material set
-
-Files:
-
-- `assets/textures/graveyard-ground-v2.png`
-- `assets/textures/crypt-masonry-v1.png`
-- `assets/textures/aether-forged-metal-v1.png`
-
-Three original 1254×1254 seamless dark-fantasy materials generated for the
-arena ground, crypt architecture and forged equipment/elite mechanisms. The
-prompts requested flat tileable albedo surfaces, neutral diffuse lighting, no
-text, logos, franchise imagery or isolated objects.
-
-## Runebound hero armor v1
-
-File: `assets/textures/hero_runebound_armor-v1.png`
-
-Final prompt:
-
-> Use case: stylized-concept. Asset type: seamless square material texture for
-> a dark fantasy ARPG hero armor. Layered midnight-blue leather and dark forged
-> steel plates with fine cyan runic inlays, worn edges, small rivets and
-> restrained magical glow. Hand-painted physically plausible game material,
-> high detail, tileable texture. Flat orthographic material swatch filling the
-> square. Charcoal steel, midnight navy leather, cold cyan runes and silver edge
-> highlights. Seamless on all edges; no text, logos, characters, watermark,
-> perspective or recognizable franchise armor patterns.
+The menu background was generated as a wide composition with dark negative
+space for typography. Atlas prompts additionally specified exact reading order,
+cell count and blackened-iron dividers.

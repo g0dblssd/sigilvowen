@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dcuqk633nmnbe"
-path="res://.godot/imported/class-portrait-atlas-v1.png-9f4a1175bc99e77cde89d896335337f6.ctex"
+uid="uid://d0rh3xdphg84r"
+path="res://.godot/imported/forged-iron-roughness.jpg-8d0e38906cf47cf31758e061a4aed046.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/class-portrait-atlas-v1.png"
-dest_files=["res://.godot/imported/class-portrait-atlas-v1.png-9f4a1175bc99e77cde89d896335337f6.ctex"]
+source_file="res://assets/textures/pbr/forged-iron-roughness.jpg"
+dest_files=["res://.godot/imported/forged-iron-roughness.jpg-8d0e38906cf47cf31758e061a4aed046.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

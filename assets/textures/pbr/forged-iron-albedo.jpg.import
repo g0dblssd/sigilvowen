@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://brgulp8nhyxq6"
-path="res://.godot/imported/graveyard-ground-v2.png-e15ea1c62eea51557f0080a15c275fb7.ctex"
+uid="uid://ctdvonvl4n64i"
+path="res://.godot/imported/forged-iron-albedo.jpg-512626272135ac356159371cee6ec8e6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/textures/graveyard-ground-v2.png"
-dest_files=["res://.godot/imported/graveyard-ground-v2.png-e15ea1c62eea51557f0080a15c275fb7.ctex"]
+source_file="res://assets/textures/pbr/forged-iron-albedo.jpg"
+dest_files=["res://.godot/imported/forged-iron-albedo.jpg-512626272135ac356159371cee6ec8e6.ctex"]
 
 [params]
 
@@ -23,7 +23,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

@@ -95,6 +95,7 @@ public partial class GameHud : CanvasLayer
             Modulate = new Color(0.62f, 0.9f, 1f),
         };
         _objective.AddThemeFontSizeOverride("font_size", 16);
+        UiTheme.Apply(_objective);
         AddChild(_objective);
     }
 
@@ -112,6 +113,7 @@ public partial class GameHud : CanvasLayer
             OffsetBottom = -6f,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
+        UiTheme.Apply(frame);
         AddChild(frame);
 
         var backdrop = new Panel
@@ -120,7 +122,7 @@ public partial class GameHud : CanvasLayer
             Size = new Vector2(644f, 124f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        backdrop.AddThemeStyleboxOverride("panel", MakePanel(new Color(0.015f, 0.022f, 0.045f, 0.94f), new Color(0.2f, 0.52f, 0.72f, 0.8f), 10));
+        backdrop.AddThemeStyleboxOverride("panel", UiTheme.Panel(0));
         frame.AddChild(backdrop);
 
         _combatMessage = new Label
@@ -134,9 +136,9 @@ public partial class GameHud : CanvasLayer
         _combatMessage.AddThemeFontSizeOverride("font_size", 15);
         frame.AddChild(_combatMessage);
 
-        _healthOrb = new VitalOrb { Position = new Vector2(72f, 34f), Size = new Vector2(136f, 136f), LiquidColor = new Color(0.78f, 0.035f, 0.055f), RimColor = new Color(0.8f, 0.5f, 0.18f) };
+        _healthOrb = new VitalOrb { Position = new Vector2(72f, 34f), Size = new Vector2(136f, 136f), LiquidColor = new Color(0.42f, 0.025f, 0.03f), RimColor = new Color(0.36f, 0.33f, 0.27f) };
         frame.AddChild(_healthOrb);
-        _manaOrb = new VitalOrb { Position = new Vector2(792f, 34f), Size = new Vector2(136f, 136f), LiquidColor = new Color(0.04f, 0.35f, 0.95f), RimColor = new Color(0.25f, 0.65f, 1f) };
+        _manaOrb = new VitalOrb { Position = new Vector2(792f, 34f), Size = new Vector2(136f, 136f), LiquidColor = new Color(0.025f, 0.16f, 0.34f), RimColor = new Color(0.36f, 0.33f, 0.27f) };
         frame.AddChild(_manaOrb);
 
         _healthText = MakeOrbLabel("HEALTH", new Vector2(79f, 85f));
@@ -195,6 +197,7 @@ public partial class GameHud : CanvasLayer
             Visible = false,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
+        UiTheme.Apply(_bossFrame);
         AddChild(_bossFrame);
         _bossBar = new ProgressBar
         {
@@ -238,7 +241,8 @@ public partial class GameHud : CanvasLayer
             OffsetLeft = 18f, OffsetRight = 310f, OffsetTop = 76f, OffsetBottom = 184f,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        panel.AddThemeStyleboxOverride("panel", MakePanel(new Color(0.01f, 0.018f, 0.038f, 0.88f), new Color(0.22f, 0.42f, 0.62f, 0.8f), 8));
+        UiTheme.Apply(panel);
+        panel.AddThemeStyleboxOverride("panel", UiTheme.Inset(9));
         AddChild(panel);
         _nearbyLoot = new Label { Text = "NEARBY RELICS\n—", AutowrapMode = TextServer.AutowrapMode.WordSmart, Modulate = new Color(0.58f, 0.7f, 0.84f), MouseFilter = Control.MouseFilterEnum.Ignore };
         _nearbyLoot.AddThemeFontSizeOverride("font_size", 11);
@@ -253,7 +257,7 @@ public partial class GameHud : CanvasLayer
             Size = new Vector2(66f, 86f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        flask.AddThemeStyleboxOverride("panel", MakePanel(new Color(0.16f, 0.025f, 0.035f, 0.96f), new Color(0.95f, 0.38f, 0.18f), 12));
+        flask.AddThemeStyleboxOverride("panel", UiTheme.Inset(6, new Color(0.42f, 0.19f, 0.14f)));
         frame.AddChild(flask);
         _flaskText = new Label
         {
@@ -282,7 +286,7 @@ public partial class GameHud : CanvasLayer
         for (int i = 0; i < 10; i++)
         {
             var panel = new PanelContainer { CustomMinimumSize = new Vector2(56f, 72f), MouseFilter = Control.MouseFilterEnum.Stop };
-            panel.AddThemeStyleboxOverride("panel", MakePanel(new Color(0.035f, 0.055f, 0.09f, 0.98f), new Color(0.22f, 0.38f, 0.55f), 5));
+            panel.AddThemeStyleboxOverride("panel", UiTheme.Inset(3));
             bar.AddChild(panel);
             _skillPanels[i] = panel;
 
@@ -322,6 +326,7 @@ public partial class GameHud : CanvasLayer
             OffsetBottom = 238f,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
+        UiTheme.Apply(map);
         AddChild(map);
         var title = new Label
         {
@@ -359,7 +364,7 @@ public partial class GameHud : CanvasLayer
                 _displayedSkillIds[i] = skill.Id;
                 _skillIcons[i].Texture = SkillIconCatalog.Get(skill.Id);
                 Color elementColor = SkillVfx.ElementColor(skill.DamageElement);
-                _skillPanels[i].AddThemeStyleboxOverride("panel", MakePanel(new Color(0.02f, 0.03f, 0.055f, 0.98f), new Color(elementColor.R, elementColor.G, elementColor.B, 0.9f), 6));
+                _skillPanels[i].AddThemeStyleboxOverride("panel", MakePanel(UiTheme.Raised, new Color(elementColor.R, elementColor.G, elementColor.B, 0.5f), 1));
             }
             bool unlocked = _player.Progression.IsSkillUnlocked(skill.Id);
             float cooldown = _caster.GetCooldownRemaining(i);
@@ -458,16 +463,16 @@ public partial class GameHud : CanvasLayer
     {
         return new StyleBoxFlat
         {
-            BgColor = background,
+            BgColor = new Color(0.032f, 0.031f, 0.029f, background.A),
             BorderColor = border,
             BorderWidthLeft = 1,
             BorderWidthTop = 1,
             BorderWidthRight = 1,
             BorderWidthBottom = 1,
-            CornerRadiusTopLeft = radius,
-            CornerRadiusTopRight = radius,
-            CornerRadiusBottomLeft = radius,
-            CornerRadiusBottomRight = radius,
+            CornerRadiusTopLeft = 1,
+            CornerRadiusTopRight = 1,
+            CornerRadiusBottomLeft = 1,
+            CornerRadiusBottomRight = 1,
         };
     }
 }

@@ -43,13 +43,15 @@ public partial class LinkMenuUI : CanvasLayer
             AnchorBottom = 0.93f,
             Visible = false,
         };
-        _panel.AddThemeStyleboxOverride("panel", MakePanel(new Color(0.012f, 0.018f, 0.04f, 0.98f), new Color(0.22f, 0.65f, 0.92f), 14, 2));
+        UiTheme.Apply(_panel);
+        _panel.AddThemeStyleboxOverride("panel", UiTheme.Panel(18, UiTheme.Bronze));
         AddChild(_panel);
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 10);
         _panel.AddChild(vbox);
-        var title = new Label { Text = "◆  SIGIL LINK FORGE  ◆", HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(0.48f, 0.88f, 1f) };
+        var title = new Label { Text = "SIGIL LINK FORGE", HorizontalAlignment = HorizontalAlignment.Center, Modulate = UiTheme.Text };
+        title.AddThemeFontOverride("font", GD.Load<Font>("res://assets/fonts/Cinzel-Variable.ttf"));
         title.AddThemeFontSizeOverride("font_size", 25);
         vbox.AddChild(title);
         var subtitle = new Label { Text = "WEAVE A SKILL, SUPPORT LINKS AND HOTBAR SLOT INTO ONE CAST", HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(0.5f, 0.58f, 0.72f) };
@@ -88,7 +90,7 @@ public partial class LinkMenuUI : CanvasLayer
         body.AddThemeConstantOverride("separation", 12);
         vbox.AddChild(body);
         var previewPanel = new PanelContainer { CustomMinimumSize = new Vector2(330f, 0f), SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        previewPanel.AddThemeStyleboxOverride("panel", MakePanel(new Color(0.025f, 0.04f, 0.075f, 0.94f), new Color(0.18f, 0.36f, 0.58f), 9, 1));
+        previewPanel.AddThemeStyleboxOverride("panel", UiTheme.Inset(9));
         body.AddChild(previewPanel);
         var previewBox = new VBoxContainer();
         previewPanel.AddChild(previewBox);
@@ -98,11 +100,11 @@ public partial class LinkMenuUI : CanvasLayer
         previewBox.AddChild(_skillDescription);
 
         var linkPanel = new PanelContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        linkPanel.AddThemeStyleboxOverride("panel", MakePanel(new Color(0.02f, 0.03f, 0.055f, 0.96f), new Color(0.32f, 0.22f, 0.58f), 9, 1));
+        linkPanel.AddThemeStyleboxOverride("panel", UiTheme.Inset(9));
         body.AddChild(linkPanel);
         var linkBox = new VBoxContainer();
         linkPanel.AddChild(linkBox);
-        _linkHeader = new Label { Text = "SUPPORT LINKS  •  SELECT UP TO 2", Modulate = new Color(0.78f, 0.58f, 1f) };
+        _linkHeader = new Label { Text = "SUPPORT LINKS  ·  SELECT UP TO 2", Modulate = UiTheme.Bronze };
         _linkHeader.AddThemeFontSizeOverride("font_size", 16);
         linkBox.AddChild(_linkHeader);
         var linkScroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
@@ -358,22 +360,6 @@ public partial class LinkMenuUI : CanvasLayer
 
     private static StyleBoxFlat MakePanel(Color background, Color border, int radius, int width)
     {
-        return new StyleBoxFlat
-        {
-            BgColor = background,
-            BorderColor = border,
-            BorderWidthLeft = width,
-            BorderWidthTop = width,
-            BorderWidthRight = width,
-            BorderWidthBottom = width,
-            CornerRadiusTopLeft = radius,
-            CornerRadiusTopRight = radius,
-            CornerRadiusBottomLeft = radius,
-            CornerRadiusBottomRight = radius,
-            ContentMarginLeft = 14f,
-            ContentMarginTop = 12f,
-            ContentMarginRight = 14f,
-            ContentMarginBottom = 12f,
-        };
+        return UiTheme.Box(UiTheme.Ink, border, width, 1, 12);
     }
 }

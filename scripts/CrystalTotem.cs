@@ -23,13 +23,7 @@ public partial class CrystalTotem : Node3D
         crystal.Position = new Vector3(0, 1.7f, 0);
         AddChild(crystal);
 
-        var forgedMat = new StandardMaterial3D
-        {
-            AlbedoColor = new Color(0.38f, 0.45f, 0.52f),
-            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/aether-forged-metal-v1.png"),
-            Metallic = 0.9f,
-            Roughness = 0.3f,
-        };
+        var forgedMat = RealisticMaterialCatalog.ForgedIron();
         for (int tier = 0; tier < 3; tier++)
         {
             var baseRing = new MeshInstance3D

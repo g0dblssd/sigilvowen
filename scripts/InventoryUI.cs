@@ -22,36 +22,38 @@ public partial class InventoryUI : CanvasLayer
     private void BuildWindow()
     {
         var window = new PanelContainer { AnchorLeft = 0.07f, AnchorRight = 0.93f, AnchorTop = 0.05f, AnchorBottom = 0.95f };
-        window.AddThemeStyleboxOverride("panel", MakeStyle(new Color(0.008f, 0.014f, 0.032f, 0.985f), new Color(0.24f, 0.66f, 0.94f), 15, 2, 18));
+        UiTheme.Apply(window);
+        window.AddThemeStyleboxOverride("panel", UiTheme.Panel(18, UiTheme.Bronze));
         AddChild(window);
         var root = new VBoxContainer(); root.AddThemeConstantOverride("separation", 10); window.AddChild(root);
         var header = new HBoxContainer(); root.AddChild(header);
-        var title = new Label { Text = "◆  SIGIL ARMORY", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, Modulate = new Color(0.48f, 0.88f, 1f) };
+        var title = new Label { Text = "SIGIL ARMORY", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, Modulate = UiTheme.Text };
+        title.AddThemeFontOverride("font", GD.Load<Font>("res://assets/fonts/Cinzel-Variable.ttf"));
         title.AddThemeFontSizeOverride("font_size", 25); header.AddChild(title);
         _filterButton = new Button(); _filterButton.Pressed += _inventory.CycleLootFilter; header.AddChild(_filterButton);
         var sort = new Button { Text = "SORT BY POWER" }; sort.Pressed += _inventory.SortInventory; header.AddChild(sort);
         var salvageLow = new Button { Text = "SALVAGE COMMON + MAGIC", TooltipText = "Destroys all Common and Magic items in the backpack." };
         salvageLow.Pressed += () => { int count = _inventory.SalvageBelowRare(); if (_detail != null) _detail.Text = $"SALVAGED {count} LOW-RARITY ITEMS"; }; header.AddChild(salvageLow);
         var close = new Button { Text = "CLOSE [I]" }; close.Pressed += Toggle; header.AddChild(close);
-        _summary = new Label { Modulate = new Color(0.76f, 0.82f, 1f) }; root.AddChild(_summary);
-        _currencies = new Label { Modulate = new Color(1f, 0.76f, 0.3f) }; root.AddChild(_currencies);
+        _summary = new Label { Modulate = UiTheme.Text }; root.AddChild(_summary);
+        _currencies = new Label { Modulate = UiTheme.Bronze }; root.AddChild(_currencies);
 
         var columns = new HBoxContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; columns.AddThemeConstantOverride("separation", 14); root.AddChild(columns);
         var bagPanel = new PanelContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        bagPanel.AddThemeStyleboxOverride("panel", MakeStyle(new Color(0.018f, 0.03f, 0.06f, 0.96f), new Color(0.13f, 0.3f, 0.5f), 9, 1, 10)); columns.AddChild(bagPanel);
+        bagPanel.AddThemeStyleboxOverride("panel", UiTheme.Inset(10)); columns.AddChild(bagPanel);
         var bagRoot = new VBoxContainer(); bagPanel.AddChild(bagRoot);
-        _bagTitle = new Label { Modulate = new Color(0.62f, 0.82f, 1f) }; _bagTitle.AddThemeFontSizeOverride("font_size", 16); bagRoot.AddChild(_bagTitle);
+        _bagTitle = new Label { Modulate = UiTheme.Text }; _bagTitle.AddThemeFontSizeOverride("font_size", 16); bagRoot.AddChild(_bagTitle);
         var bagScroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill }; bagRoot.AddChild(bagScroll);
         _itemGrid = new GridContainer { Columns = 5, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         _itemGrid.AddThemeConstantOverride("h_separation", 7); _itemGrid.AddThemeConstantOverride("v_separation", 7); bagScroll.AddChild(_itemGrid);
 
         var gearPanel = new PanelContainer { CustomMinimumSize = new Vector2(430f, 0f), SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        gearPanel.AddThemeStyleboxOverride("panel", MakeStyle(new Color(0.022f, 0.028f, 0.052f, 0.97f), new Color(0.48f, 0.31f, 0.72f), 9, 1, 10)); columns.AddChild(gearPanel);
+        gearPanel.AddThemeStyleboxOverride("panel", UiTheme.Inset(10)); columns.AddChild(gearPanel);
         var gearRoot = new VBoxContainer(); gearPanel.AddChild(gearRoot);
-        var gearTitle = new Label { Text = "EQUIPPED RELICS  •  CLICK TO UNEQUIP", Modulate = new Color(1f, 0.73f, 0.3f) };
+        var gearTitle = new Label { Text = "EQUIPPED RELICS  ·  CLICK TO UNEQUIP", Modulate = UiTheme.Bronze };
         gearTitle.AddThemeFontSizeOverride("font_size", 16); gearRoot.AddChild(gearTitle);
         _equipmentGrid = new GridContainer { Columns = 3, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; gearRoot.AddChild(_equipmentGrid);
-        _detail = new Label { Text = "Hover an item to inspect it.", AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsVertical = Control.SizeFlags.ExpandFill, Modulate = new Color(0.72f, 0.78f, 0.9f) }; gearRoot.AddChild(_detail);
+        _detail = new Label { Text = "Hover an item to inspect it.", AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsVertical = Control.SizeFlags.ExpandFill, Modulate = UiTheme.Text }; gearRoot.AddChild(_detail);
         var footer = new Label { Text = "F PICKUP  •  HOVER INSPECT  •  EQUIP/SALVAGE ON CARD  •  RARITY BORDER = LOOT QUALITY", HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(0.42f, 0.52f, 0.67f) };
         footer.AddThemeFontSizeOverride("font_size", 10); root.AddChild(footer);
         Refresh();
@@ -73,7 +75,7 @@ public partial class InventoryUI : CanvasLayer
     private Control BuildBagCard(ItemData item)
     {
         var panel = new PanelContainer { CustomMinimumSize = new Vector2(132f, 174f), TooltipText = item.BuildTooltip() + "\n\nCOMPARISON\n" + _inventory.BuildComparison(item) };
-        panel.AddThemeStyleboxOverride("panel", MakeStyle(new Color(0.025f, 0.035f, 0.06f, 0.98f), item.RarityColor, 7, item.Rarity >= ItemRarity.Rare ? 2 : 1, 5));
+        panel.AddThemeStyleboxOverride("panel", MakeStyle(UiTheme.Raised, item.RarityColor, 1, item.Rarity >= ItemRarity.Rare ? 2 : 1, 5));
         panel.MouseEntered += () => ShowItemDetail(item, true);
         var stack = new VBoxContainer(); stack.AddThemeConstantOverride("separation", 2); panel.AddChild(stack);
         stack.AddChild(new TextureRect { Texture = ItemIconCatalog.Get(item.Slot), CustomMinimumSize = new Vector2(92f, 82f), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, MouseFilter = Control.MouseFilterEnum.Ignore });
@@ -93,7 +95,7 @@ public partial class InventoryUI : CanvasLayer
         bool occupied = _inventory.Equipped.TryGetValue(slot, out ItemData? item);
         Color border = occupied ? item!.RarityColor : new Color(0.18f, 0.23f, 0.32f);
         var button = new Button { CustomMinimumSize = new Vector2(128f, 142f), TooltipText = occupied ? item!.BuildTooltip() : $"EMPTY {slot.ToString().ToUpperInvariant()} SLOT" };
-        button.AddThemeStyleboxOverride("normal", MakeStyle(new Color(0.016f, 0.024f, 0.046f, 0.98f), border, 8, occupied ? 2 : 1, 5));
+        button.AddThemeStyleboxOverride("normal", MakeStyle(UiTheme.Raised, border, 1, occupied ? 2 : 1, 5));
         var stack = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore }; button.AddChild(stack); stack.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         stack.AddChild(new Label { Text = slot.ToString().ToUpperInvariant(), HorizontalAlignment = HorizontalAlignment.Center, Modulate = new Color(0.58f, 0.68f, 0.82f), MouseFilter = Control.MouseFilterEnum.Ignore });
         stack.AddChild(new TextureRect { Texture = ItemIconCatalog.Get(slot), Modulate = occupied ? Colors.White : new Color(0.22f, 0.25f, 0.3f), CustomMinimumSize = new Vector2(96f, 78f), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, MouseFilter = Control.MouseFilterEnum.Ignore });
@@ -106,7 +108,7 @@ public partial class InventoryUI : CanvasLayer
     private Control BuildEmptyBagSlot()
     {
         var empty = new PanelContainer { CustomMinimumSize = new Vector2(132f, 174f), MouseFilter = Control.MouseFilterEnum.Ignore };
-        empty.AddThemeStyleboxOverride("panel", MakeStyle(new Color(0.012f, 0.018f, 0.032f, 0.75f), new Color(0.1f, 0.15f, 0.23f), 7, 1, 5));
+        empty.AddThemeStyleboxOverride("panel", MakeStyle(new Color(0.025f, 0.024f, 0.022f, 0.75f), new Color(0.12f, 0.12f, 0.11f), 1, 1, 5));
         empty.AddChild(new Label { Text = "◇\nEMPTY", HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Modulate = new Color(0.2f, 0.27f, 0.38f), MouseFilter = Control.MouseFilterEnum.Ignore }); return empty;
     }
 
