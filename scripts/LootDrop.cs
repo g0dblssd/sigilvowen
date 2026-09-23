@@ -29,14 +29,10 @@ public partial class LootDrop : Node3D
             Emission = color,
             EmissionEnergyMultiplier = Item.Rarity >= ItemRarity.Rare ? 3.5f : 1.8f,
         };
-        var itemMesh = new MeshInstance3D
-        {
-            Mesh = BuildLootMesh(Item.Slot),
-            Position = new Vector3(0f, 0.28f, 0f),
-            RotationDegrees = new Vector3(8f, 25f, 4f),
-        };
-        itemMesh.SetSurfaceOverrideMaterial(0, material);
-        AddChild(itemMesh);
+        Node3D itemModel = BuildLootModel(Item.Slot, material);
+        itemModel.Position = new Vector3(0f, 0.28f, 0f);
+        itemModel.RotationDegrees = new Vector3(8f, 25f, 4f);
+        AddChild(itemModel);
 
         _icon = new Sprite3D
         {
@@ -76,21 +72,65 @@ public partial class LootDrop : Node3D
         AddChild(_label);
     }
 
-    private static PrimitiveMesh BuildLootMesh(EquipmentSlot slot)
+    private static Node3D BuildLootModel(EquipmentSlot slot, Material material)
     {
-        return slot switch
+        var root = new Node3D();
+        switch (slot)
         {
-            EquipmentSlot.Weapon => new BoxMesh { Size = new Vector3(0.13f, 0.12f, 0.9f) },
-            EquipmentSlot.Focus => new SphereMesh { Radius = 0.24f, Height = 0.48f },
-            EquipmentSlot.Helm => new CylinderMesh { TopRadius = 0.18f, BottomRadius = 0.3f, Height = 0.34f },
-            EquipmentSlot.Chest => new BoxMesh { Size = new Vector3(0.48f, 0.55f, 0.2f) },
-            EquipmentSlot.Gloves => new CapsuleMesh { Radius = 0.16f, Height = 0.4f },
-            EquipmentSlot.Boots => new BoxMesh { Size = new Vector3(0.25f, 0.2f, 0.48f) },
-            EquipmentSlot.Belt => new TorusMesh { InnerRadius = 0.19f, OuterRadius = 0.27f },
-            EquipmentSlot.Ring => new TorusMesh { InnerRadius = 0.13f, OuterRadius = 0.21f },
-            EquipmentSlot.Amulet => new PrismMesh { Size = new Vector3(0.35f, 0.42f, 0.15f) },
-            _ => new BoxMesh { Size = new Vector3(0.34f, 0.12f, 0.52f) },
-        };
+            case EquipmentSlot.Weapon:
+                AddPart(root, new PrismMesh { Size = new Vector3(0.16f, 0.12f, 1.05f) }, material, new Vector3(0f, 0f, -0.18f));
+                AddPart(root, new BoxMesh { Size = new Vector3(0.62f, 0.13f, 0.12f) }, material, new Vector3(0f, 0f, 0.38f));
+                AddPart(root, new CylinderMesh { TopRadius = 0.07f, BottomRadius = 0.09f, Height = 0.48f, RadialSegments = 8 }, material, new Vector3(0f, 0f, 0.65f), new Vector3(Mathf.Pi * 0.5f, 0f, 0f));
+                AddPart(root, new SphereMesh { Radius = 0.13f, Height = 0.22f }, material, new Vector3(0f, 0f, 0.93f));
+                break;
+            case EquipmentSlot.Focus:
+                AddPart(root, new SphereMesh { Radius = 0.28f, Height = 0.56f }, material, Vector3.Zero);
+                AddPart(root, new TorusMesh { InnerRadius = 0.34f, OuterRadius = 0.4f }, material, Vector3.Zero, new Vector3(0.35f, 0f, 0f));
+                AddPart(root, new TorusMesh { InnerRadius = 0.42f, OuterRadius = 0.47f }, material, Vector3.Zero, new Vector3(0f, 0.55f, 0.32f));
+                break;
+            case EquipmentSlot.Helm:
+                AddPart(root, new CylinderMesh { TopRadius = 0.19f, BottomRadius = 0.32f, Height = 0.4f, RadialSegments = 8 }, material, Vector3.Zero);
+                AddPart(root, new BoxMesh { Size = new Vector3(0.38f, 0.09f, 0.32f) }, material, new Vector3(0f, 0.02f, -0.23f));
+                AddPart(root, new PrismMesh { Size = new Vector3(0.08f, 0.32f, 0.08f) }, material, new Vector3(0f, 0.35f, 0f));
+                break;
+            case EquipmentSlot.Chest:
+                AddPart(root, new BoxMesh { Size = new Vector3(0.58f, 0.66f, 0.25f) }, material, Vector3.Zero);
+                AddPart(root, new BoxMesh { Size = new Vector3(0.12f, 0.58f, 0.29f) }, material, new Vector3(0f, 0f, -0.16f), new Vector3(0f, 0f, 0.7f));
+                AddPart(root, new SphereMesh { Radius = 0.18f, Height = 0.28f }, material, new Vector3(-0.38f, 0.22f, 0f), scale: new Vector3(1.25f, 0.7f, 1f));
+                AddPart(root, new SphereMesh { Radius = 0.18f, Height = 0.28f }, material, new Vector3(0.38f, 0.22f, 0f), scale: new Vector3(1.25f, 0.7f, 1f));
+                break;
+            case EquipmentSlot.Gloves:
+                AddPart(root, new CapsuleMesh { Radius = 0.16f, Height = 0.44f }, material, new Vector3(-0.2f, 0f, 0f), new Vector3(0f, 0f, -0.32f));
+                AddPart(root, new CapsuleMesh { Radius = 0.16f, Height = 0.44f }, material, new Vector3(0.2f, 0f, 0f), new Vector3(0f, 0f, 0.32f));
+                break;
+            case EquipmentSlot.Boots:
+                AddPart(root, new BoxMesh { Size = new Vector3(0.25f, 0.34f, 0.52f) }, material, new Vector3(-0.18f, 0f, 0f));
+                AddPart(root, new BoxMesh { Size = new Vector3(0.25f, 0.34f, 0.52f) }, material, new Vector3(0.18f, 0f, 0f));
+                AddPart(root, new TorusMesh { InnerRadius = 0.13f, OuterRadius = 0.18f }, material, new Vector3(-0.18f, 0.2f, 0f));
+                AddPart(root, new TorusMesh { InnerRadius = 0.13f, OuterRadius = 0.18f }, material, new Vector3(0.18f, 0.2f, 0f));
+                break;
+            case EquipmentSlot.Belt:
+                AddPart(root, new TorusMesh { InnerRadius = 0.24f, OuterRadius = 0.32f }, material, Vector3.Zero, new Vector3(Mathf.Pi * 0.5f, 0f, 0f));
+                AddPart(root, new BoxMesh { Size = new Vector3(0.2f, 0.24f, 0.1f) }, material, new Vector3(0f, 0f, -0.31f));
+                break;
+            case EquipmentSlot.Ring:
+                AddPart(root, new TorusMesh { InnerRadius = 0.15f, OuterRadius = 0.23f }, material, Vector3.Zero, new Vector3(Mathf.Pi * 0.5f, 0f, 0f));
+                AddPart(root, new PrismMesh { Size = new Vector3(0.2f, 0.23f, 0.16f) }, material, new Vector3(0f, 0.23f, 0f));
+                break;
+            case EquipmentSlot.Amulet:
+                AddPart(root, new TorusMesh { InnerRadius = 0.3f, OuterRadius = 0.335f }, material, new Vector3(0f, 0.1f, 0f));
+                AddPart(root, new PrismMesh { Size = new Vector3(0.34f, 0.48f, 0.15f) }, material, new Vector3(0f, -0.3f, 0f));
+                AddPart(root, new SphereMesh { Radius = 0.09f, Height = 0.18f }, material, new Vector3(0f, -0.3f, -0.1f));
+                break;
+        }
+        return root;
+    }
+
+    private static void AddPart(Node3D root, PrimitiveMesh mesh, Material material, Vector3 position, Vector3? rotation = null, Vector3? scale = null)
+    {
+        var part = new MeshInstance3D { Mesh = mesh, Position = position, Rotation = rotation ?? Vector3.Zero, Scale = scale ?? Vector3.One };
+        part.SetSurfaceOverrideMaterial(0, material);
+        root.AddChild(part);
     }
 
     public override void _Process(double delta)

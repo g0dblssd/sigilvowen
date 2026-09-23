@@ -44,12 +44,12 @@ public partial class Main : Node3D
 
         var groundMat = new StandardMaterial3D
         {
-            AlbedoColor = new Color(0.22f, 0.24f, 0.28f),
-            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/arena_rune_stone.png"),
+            AlbedoColor = new Color(0.72f, 0.76f, 0.82f),
+            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/graveyard-ground-v2.png"),
             Metallic = 0.08f,
             Roughness = 0.9f,
             TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
-            Uv1Scale = new Vector3(8f, 8f, 1f),
+            Uv1Scale = new Vector3(14f, 14f, 1f),
         };
         var groundMesh = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(140f, 1f, 140f) } };
         groundMesh.SetSurfaceOverrideMaterial(0, groundMat);

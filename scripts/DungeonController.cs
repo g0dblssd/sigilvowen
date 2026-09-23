@@ -257,7 +257,9 @@ public partial class DungeonController : Node
             float angle = GD.Randf() * Mathf.Tau;
             float scatter = Mathf.Sqrt(GD.Randf()) * (float)GD.RandRange(2.5f, 6.5f);
             var difficulty = GetDifficulty();
-            EliteModifier elite = i == 0 || (i > 2 && GD.Randf() < 0.2f + difficulty.Elite) ? Enemy.RollEliteModifier() : EliteModifier.None;
+            EliteModifier elite = i == 0 || (i > 2 && GD.Randf() < 0.2f + difficulty.Elite)
+                ? Enemy.RollEliteModifiers(MaxEliteAffixes())
+                : EliteModifier.None;
             Vector3 offset = new(Mathf.Cos(angle) * scatter, 0f, Mathf.Sin(angle) * scatter);
             Enemy enemy = pack.AddMember(baseHp * (float)GD.RandRange(0.9f, 1.12f), archetypes[i], offset, elite);
             float levelDamage = 1f + (_player.Progression.Level - 1) * 0.0045f;
@@ -297,6 +299,17 @@ public partial class DungeonController : Node
         {
             SpawnGuardian();
         }
+    }
+
+    private int MaxEliteAffixes()
+    {
+        return _difficultyIndex switch
+        {
+            >= 7 => 4,
+            >= 4 => 3,
+            >= 2 => 2,
+            _ => 1,
+        };
     }
 
     private void SpawnGuardian()
@@ -382,7 +395,7 @@ public partial class DungeonController : Node
             float levelLife = _player == null ? 1f : 1f + (_player.Progression.Level - 1) * 0.012f;
             float levelDamage = _player == null ? 1f : 1f + (_player.Progression.Level - 1) * 0.0045f;
             float experience = 1f + _difficultyIndex * 0.22f;
-            _difficultyDetails.Text = $"{difficulty.Name}  •  Total enemy life ×{difficulty.Health * levelLife:0.00}  •  damage ×{difficulty.Damage * levelDamage:0.00}\nDensity {(difficulty.Density >= 0 ? "+" : "")}{difficulty.Density}  •  elite pressure +{difficulty.Elite * 100:0}%  •  XP ×{experience:0.00}  •  rarity +{difficulty.Rarity * 100:0}%  •  bonus relics {difficulty.BonusDrops}";
+            _difficultyDetails.Text = $"{difficulty.Name}  •  Total enemy life ×{difficulty.Health * levelLife:0.00}  •  damage ×{difficulty.Damage * levelDamage:0.00}\nDensity {(difficulty.Density >= 0 ? "+" : "")}{difficulty.Density}  •  elite pressure +{difficulty.Elite * 100:0}%  •  affixes up to {MaxEliteAffixes()}  •  XP ×{experience:0.00}  •  rarity +{difficulty.Rarity * 100:0}%  •  bonus relics {difficulty.BonusDrops}";
             _difficultyDetails.Modulate = _difficultyIndex switch { >= 7 => new Color(0.78f, 0.24f, 1f), >= 4 => new Color(1f, 0.16f, 0.12f), 3 => new Color(1f, 0.25f, 0.18f), 2 => new Color(1f, 0.55f, 0.18f), _ => new Color(0.58f, 0.82f, 1f) };
         }
         if (_statusLabel != null && !_running)

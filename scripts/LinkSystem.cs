@@ -2,6 +2,14 @@ using System.Collections.Generic;
 
 namespace Sigilwoven;
 
+public enum AttackForm
+{
+    Melee,
+    Projectile,
+    Area,
+    Summon,
+}
+
 // Result of LinkSystem.ResolveCast: final damage + bonus procs.
 public class ResolvedCast
 {
@@ -35,6 +43,7 @@ public class ResolvedCast
     public float CriticalMultiplier = 1f;
     public float StaggerDamage;
     public float ElementalPenetration;
+    public AttackForm AttackForm;
 }
 
 public static class LinkSystem
@@ -61,6 +70,13 @@ public static class LinkSystem
             Element = skill.DamageElement,
             Damage = skill.BaseDamage,
             ChainCount = skill.Id == "chain_lightning" ? 2 : 0,
+            AttackForm = skill.Type switch
+            {
+                SkillType.Projectile => AttackForm.Projectile,
+                SkillType.AreaAttack => AttackForm.Area,
+                SkillType.Summon => AttackForm.Summon,
+                _ => AttackForm.Melee,
+            },
         };
 
         foreach (var link in links)

@@ -349,15 +349,15 @@ public partial class PlayerController : CharacterBody3D
             return false;
         }
         bool knightRig = Progression.HeroClass == HeroClass.Runeblade;
-        bool kenneyRig = Progression.HeroClass is HeroClass.Necromancer or HeroClass.Shadowstalker;
+        bool kenneyRig = false;
         string modelPath = Progression.HeroClass switch
         {
-            HeroClass.Aetherist => "res://assets/models/quaternius_enemies/Wizard.fbx",
-            HeroClass.Necromancer => "res://assets/models/kenney_graveyard/character-ghost.glb",
-            HeroClass.Warden => "res://assets/models/quaternius_enemies/Ninja_Male.fbx",
-            HeroClass.Shadowstalker => "res://assets/models/kenney_graveyard/character-vampire.glb",
+            HeroClass.Aetherist => "res://assets/models/quaternius_characters/Witch.fbx",
+            HeroClass.Necromancer => "res://assets/models/quaternius_enemies/Wizard.fbx",
+            HeroClass.Warden => "res://assets/models/quaternius_characters/Elf.fbx",
+            HeroClass.Shadowstalker => "res://assets/models/quaternius_characters/Ninja_Female.fbx",
             HeroClass.Berserker => "res://assets/models/quaternius_enemies/Viking_Male.fbx",
-            HeroClass.Templar => "res://assets/models/quaternius_enemies/Knight_Golden_Male.fbx",
+            HeroClass.Templar => "res://assets/models/quaternius_characters/Knight_Golden_Female.fbx",
             _ => "res://assets/models/quaternius_knight/KnightCharacter.fbx",
         };
         PackedScene? characterScene = GD.Load<PackedScene>(modelPath);

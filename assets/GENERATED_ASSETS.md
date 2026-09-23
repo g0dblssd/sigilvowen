@@ -29,6 +29,19 @@ Final prompt:
 The generated 1254×1254 atlas was preserved and mechanically divided into 16
 individual PNG files for Godot UI use.
 
+## Environment material set
+
+Files:
+
+- `assets/textures/graveyard-ground-v2.png`
+- `assets/textures/crypt-masonry-v1.png`
+- `assets/textures/aether-forged-metal-v1.png`
+
+Three original 1254×1254 seamless dark-fantasy materials generated for the
+arena ground, crypt architecture and forged equipment/elite mechanisms. The
+prompts requested flat tileable albedo surfaces, neutral diffuse lighting, no
+text, logos, franchise imagery or isolated objects.
+
 ## Runebound hero armor v1
 
 File: `assets/textures/hero_runebound_armor-v1.png`

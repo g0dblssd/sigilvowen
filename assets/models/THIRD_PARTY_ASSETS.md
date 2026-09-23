@@ -22,8 +22,18 @@
   - `Viking_Male.fbx` — Brute;
   - `Wizard.fbx` — Hexer;
   - `Knight_Golden_Male.fbx` — Guardian.
+- Expanded humanoid subset in `quaternius_characters/`:
+  - `Elf.fbx`, `Witch.fbx`, `Knight_Golden_Female.fbx`, `Ninja_Female.fbx`
+    — playable class identities;
+  - `Pirate_Male.fbx`, `Soldier_Male.fbx`, `Knight_Male.fbx`,
+    `Ninja_Sand.fbx`, `Zombie_Male.fbx` — distinct enemy roles;
+  - `OldClassy_Female.fbx`, `Pirate_Female.fbx`, `Suit_Male.fbx` — town NPCs;
+  - `Pug.fbx` — Dread Hound summon.
 - Enemy clips verified after import: Idle, Walk, Punch, Shoot_OneHanded,
   RecieveHit, Defeat, Victory, PickUp, SitDown and StandUp.
 
 Both packs permit use, modification and redistribution without attribution.
 Attribution is retained here for provenance and respect for the author.
+
+Download source for the Ultimate Animated Character Pack:
+https://opengameart.org/content/animated-characters-pack

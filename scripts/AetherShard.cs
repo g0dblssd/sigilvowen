@@ -23,9 +23,24 @@ public partial class AetherShard : Area3D
             Emission = new Color(0.1f, 0.7f, 1f),
             EmissionEnergyMultiplier = 2.5f,
         };
-        var mesh = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.28f, Height = 0.56f } };
-        mesh.SetSurfaceOverrideMaterial(0, material);
-        AddChild(mesh);
+        var core = new MeshInstance3D { Mesh = new PrismMesh { Size = new Vector3(0.34f, 0.72f, 0.34f) }, Rotation = new Vector3(0.12f, 0.25f, -0.08f) };
+        core.SetSurfaceOverrideMaterial(0, material);
+        AddChild(core);
+        for (int i = 0; i < 3; i++)
+        {
+            float angle = Mathf.Tau * i / 3f;
+            var shard = new MeshInstance3D
+            {
+                Mesh = new PrismMesh { Size = new Vector3(0.12f, 0.36f, 0.12f) },
+                Position = new Vector3(Mathf.Cos(angle) * 0.34f, -0.12f, Mathf.Sin(angle) * 0.34f),
+                Rotation = new Vector3(0.35f, -angle, 0.28f),
+            };
+            shard.SetSurfaceOverrideMaterial(0, material);
+            AddChild(shard);
+        }
+        var ring = new MeshInstance3D { Mesh = new TorusMesh { InnerRadius = 0.38f, OuterRadius = 0.44f }, Rotation = new Vector3(0.35f, 0f, 0.18f) };
+        ring.SetSurfaceOverrideMaterial(0, material);
+        AddChild(ring);
         var collision = new CollisionShape3D { Shape = new SphereShape3D { Radius = 0.65f } };
         AddChild(collision);
         var label = new Label3D { Text = "AETHER", FontSize = 26, OutlineSize = 5, Position = new Vector3(0f, 0.55f, 0f), Modulate = new Color(0.55f, 0.95f, 1f) };

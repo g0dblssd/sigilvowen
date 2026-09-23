@@ -24,9 +24,9 @@ public partial class TownHubController : Node3D
 
     public override void _Ready()
     {
-        BuildNpc(Service.Guide, new Vector3(-5f, 0f, 4f), "WOVEN GUIDE", "Wizard.fbx", new Color(0.28f, 0.75f, 1f));
-        BuildNpc(Service.Merchant, new Vector3(5f, 0f, 4f), "VARRA • RELIC BROKER", "Knight_Golden_Male.fbx", new Color(1f, 0.63f, 0.2f));
-        BuildNpc(Service.Casino, new Vector3(8f, 0f, -2f), "THE CROOKED WHEEL", "Ninja_Male.fbx", new Color(0.78f, 0.25f, 1f));
+        BuildNpc(Service.Guide, new Vector3(-5f, 0f, 4f), "WOVEN GUIDE", "OldClassy_Female.fbx", new Color(0.28f, 0.75f, 1f));
+        BuildNpc(Service.Merchant, new Vector3(5f, 0f, 4f), "VARRA • RELIC BROKER", "Pirate_Female.fbx", new Color(1f, 0.63f, 0.2f));
+        BuildNpc(Service.Casino, new Vector3(8f, 0f, -2f), "THE CROOKED WHEEL", "Suit_Male.fbx", new Color(0.78f, 0.25f, 1f));
         BuildUi();
     }
 
@@ -63,7 +63,7 @@ public partial class TownHubController : Node3D
     private void BuildNpc(Service service, Vector3 position, string labelText, string modelFile, Color color)
     {
         var anchor = new Node3D { Position = position }; anchor.SetMeta("service", (int)service); AddChild(anchor);
-        PackedScene? scene = GD.Load<PackedScene>($"res://assets/models/quaternius_enemies/{modelFile}");
+        PackedScene? scene = GD.Load<PackedScene>($"res://assets/models/quaternius_characters/{modelFile}");
         if (scene?.Instantiate() is Node3D model)
         {
             model.Scale = Vector3.One * 0.58f; anchor.AddChild(model);

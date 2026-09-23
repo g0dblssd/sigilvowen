@@ -8,7 +8,6 @@ public partial class Minion : CharacterBody3D
     private ResolvedCast? _resolved;
     private Node3D? _followTarget;
     private float _attackCooldown;
-    private MeshInstance3D? _mesh;
     private float _lifeLeft;
 
     private const float Speed = 5f;
@@ -43,11 +42,7 @@ public partial class Minion : CharacterBody3D
             mat.AlbedoColor = new Color(0.3f, 0.8f, 0.35f);
         }
 
-        var capsule = new CapsuleMesh { Radius = 0.4f, Height = 1.4f };
-        _mesh = new MeshInstance3D { Mesh = capsule };
-        _mesh.SetSurfaceOverrideMaterial(0, mat);
-        _mesh.Position = new Vector3(0, 0.9f, 0);
-        AddChild(_mesh);
+        if (!TryBuildImportedMinion()) BuildProceduralMinion(mat);
 
         // Small lightning halo for lightning form.
         if (lightning)
@@ -68,6 +63,79 @@ public partial class Minion : CharacterBody3D
         var col = new CollisionShape3D { Shape = new CapsuleShape3D { Radius = 0.4f, Height = 1.4f } };
         col.Position = new Vector3(0, 0.9f, 0);
         AddChild(col);
+    }
+
+    private bool TryBuildImportedMinion()
+    {
+        if (_skill == null) return false;
+        string? path = _skill.Id switch
+        {
+            "bone_golem" or "raise_legion" => "res://assets/models/kenney_graveyard/character-skeleton.glb",
+            "dread_hound" => "res://assets/models/quaternius_characters/Pug.fbx",
+            "ember_imp" => "res://assets/models/kenney_graveyard/character-ghost.glb",
+            _ => null,
+        };
+        if (path == null || GD.Load<PackedScene>(path)?.Instantiate() is not Node3D model) return false;
+        model.Scale = Vector3.One * (_skill.Id == "dread_hound" ? 0.46f : _skill.Id == "bone_golem" ? 1.25f : 0.82f);
+        model.Position = _skill.Id == "dread_hound" ? new Vector3(0f, 0f, 0f) : new Vector3(0f, 0.05f, 0f);
+        AddChild(model);
+        AnimationPlayer? animator = model.GetNodeOrNull<AnimationPlayer>("AnimationPlayer");
+        if (animator?.GetAnimation("CharacterArmature|Walk") is Animation walk)
+        {
+            walk.LoopMode = Animation.LoopModeEnum.Linear;
+            animator.Play("CharacterArmature|Walk");
+        }
+        return true;
+    }
+
+    private void BuildProceduralMinion(StandardMaterial3D material)
+    {
+        var root = new Node3D();
+        AddChild(root);
+        string id = _skill?.Id ?? "summon";
+        if (id == "frost_spider")
+        {
+            AddPart(root, new SphereMesh { Radius = 0.38f, Height = 0.56f }, material, new Vector3(0f, 0.52f, 0f), new Vector3(1.25f, 0.7f, 1.5f));
+            AddPart(root, new SphereMesh { Radius = 0.26f, Height = 0.42f }, material, new Vector3(0f, 0.55f, -0.5f));
+            for (int i = 0; i < 8; i++)
+            {
+                float side = i < 4 ? -1f : 1f;
+                int row = i % 4;
+                AddPart(root, new CylinderMesh { TopRadius = 0.035f, BottomRadius = 0.065f, Height = 0.92f, RadialSegments = 6 }, material,
+                    new Vector3(side * 0.48f, 0.38f, -0.48f + row * 0.31f), new Vector3(0.62f, 0f, side * 0.92f));
+            }
+            return;
+        }
+        if (id == "phoenix")
+        {
+            AddPart(root, new SphereMesh { Radius = 0.32f, Height = 0.9f }, material, new Vector3(0f, 0.9f, 0f), new Vector3(0.9f, 1.25f, 0.9f));
+            AddPart(root, new SphereMesh { Radius = 0.2f, Height = 0.38f }, material, new Vector3(0f, 1.42f, -0.08f));
+            for (int i = 0; i < 3; i++)
+            {
+                float spread = 0.45f + i * 0.22f;
+                AddPart(root, new PrismMesh { Size = new Vector3(0.18f, 0.68f, 1.25f) }, material, new Vector3(-spread, 1f, 0.08f), new Vector3(0.18f, -0.22f, 0.95f - i * 0.12f));
+                AddPart(root, new PrismMesh { Size = new Vector3(0.18f, 0.68f, 1.25f) }, material, new Vector3(spread, 1f, 0.08f), new Vector3(0.18f, 0.22f, -0.95f + i * 0.12f));
+            }
+            AddPart(root, new PrismMesh { Size = new Vector3(0.18f, 1.1f, 0.22f) }, material, new Vector3(0f, 0.62f, 0.48f), new Vector3(0.7f, 0f, 0f));
+            return;
+        }
+
+        AddPart(root, new PrismMesh { Size = new Vector3(0.72f, 1.35f, 0.72f) }, material, new Vector3(0f, 0.95f, 0f));
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = Mathf.Tau * i / 4f;
+            AddPart(root, new PrismMesh { Size = new Vector3(0.18f, 0.72f, 0.18f) }, material,
+                new Vector3(Mathf.Cos(angle) * 0.62f, 0.92f, Mathf.Sin(angle) * 0.62f), new Vector3(0.35f, -angle, 0.2f));
+        }
+        AddPart(root, new TorusMesh { InnerRadius = 0.52f, OuterRadius = 0.64f }, material, new Vector3(0f, 1.72f, 0f), new Vector3(0.28f, 0f, 0.16f));
+    }
+
+    private static MeshInstance3D AddPart(Node3D parent, PrimitiveMesh mesh, Material material, Vector3 position, Vector3? rotation = null, Vector3? scale = null)
+    {
+        var part = new MeshInstance3D { Mesh = mesh, Position = position, Rotation = rotation ?? Vector3.Zero, Scale = scale ?? Vector3.One };
+        part.SetSurfaceOverrideMaterial(0, material);
+        parent.AddChild(part);
+        return part;
     }
 
     public override void _PhysicsProcess(double delta)

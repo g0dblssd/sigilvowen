@@ -32,8 +32,8 @@ public partial class ArenaEnvironment : Node3D
     {
         var wallMaterial = new StandardMaterial3D
         {
-            AlbedoColor = new Color(0.48f, 0.54f, 0.64f),
-            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/arena_rune_stone.png"),
+            AlbedoColor = new Color(0.72f, 0.78f, 0.9f),
+            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/crypt-masonry-v1.png"),
             Roughness = 0.94f,
             Metallic = 0.06f,
             TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,

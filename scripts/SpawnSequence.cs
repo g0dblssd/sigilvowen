@@ -147,7 +147,8 @@ public partial class SpawnSequence : Node
         for (int i = 0; i < definition.Archetypes.Length; i++)
         {
             float angle = Mathf.Tau * i / definition.Archetypes.Length;
-            EliteModifier elite = i == 0 ? Enemy.RollEliteModifier() : EliteModifier.None;
+            int affixCount = player.Progression.Level >= 225 ? 3 : player.Progression.Level >= 75 ? 2 : 1;
+            EliteModifier elite = i == 0 ? Enemy.RollEliteModifiers(affixCount) : EliteModifier.None;
             Enemy enemy = pack.AddMember(definition.BaseHp, definition.Archetypes[i], new Vector3(Mathf.Cos(angle) * 1.8f, 0f, Mathf.Sin(angle) * 1.8f), elite);
             float healthScale = 1f + (player.Progression.Level - 1) * 0.011f;
             float damageScale = 1f + (player.Progression.Level - 1) * 0.0045f;

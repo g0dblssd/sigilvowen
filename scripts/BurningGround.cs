@@ -71,6 +71,10 @@ public partial class BurningGround : Area3D
                 {
                     e.TakeDamage(Dps * 0.25f, DamageElement.Fire, Resolved);
                 }
+                else if (body is WardenPylon pylon && IsInstanceValid(pylon) && !pylon.IsQueuedForDeletion())
+                {
+                    pylon.TakeDamage(Dps * 0.25f, DamageElement.Fire, Resolved);
+                }
             }
         }
     }

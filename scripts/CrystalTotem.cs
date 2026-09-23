@@ -18,10 +18,40 @@ public partial class CrystalTotem : Node3D
             Emission = new Color(0.05f, 0.65f, 1f),
             EmissionEnergyMultiplier = 3.2f,
         };
-        var crystal = new MeshInstance3D { Mesh = new CylinderMesh { TopRadius = 0.12f, BottomRadius = 0.72f, Height = 3.4f } };
+        var crystal = new MeshInstance3D { Mesh = new PrismMesh { Size = new Vector3(1.1f, 3.4f, 1.1f) }, Rotation = new Vector3(0.03f, 0.18f, -0.04f) };
         crystal.SetSurfaceOverrideMaterial(0, crystalMat);
         crystal.Position = new Vector3(0, 1.7f, 0);
         AddChild(crystal);
+
+        var forgedMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.38f, 0.45f, 0.52f),
+            AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/aether-forged-metal-v1.png"),
+            Metallic = 0.9f,
+            Roughness = 0.3f,
+        };
+        for (int tier = 0; tier < 3; tier++)
+        {
+            var baseRing = new MeshInstance3D
+            {
+                Mesh = new CylinderMesh { TopRadius = 1.05f - tier * 0.18f, BottomRadius = 1.2f - tier * 0.18f, Height = 0.22f, RadialSegments = 10 },
+                Position = new Vector3(0f, 0.11f + tier * 0.2f, 0f),
+            };
+            baseRing.SetSurfaceOverrideMaterial(0, forgedMat);
+            AddChild(baseRing);
+        }
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = Mathf.Tau * i / 4f;
+            var claw = new MeshInstance3D
+            {
+                Mesh = new PrismMesh { Size = new Vector3(0.22f, 1.35f, 0.28f) },
+                Position = new Vector3(Mathf.Cos(angle) * 0.78f, 0.92f, Mathf.Sin(angle) * 0.78f),
+                Rotation = new Vector3(0.22f, -angle, 0.18f),
+            };
+            claw.SetSurfaceOverrideMaterial(0, forgedMat);
+            AddChild(claw);
+        }
 
         _light = new OmniLight3D { LightColor = new Color(0.2f, 0.75f, 1f), LightEnergy = 5f, OmniRange = 11f };
         _light.Position = new Vector3(0, 2f, 0);

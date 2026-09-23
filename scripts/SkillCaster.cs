@@ -290,6 +290,7 @@ public partial class SkillCaster : Node
         float targetDistance = player.GlobalPosition.DistanceTo(target);
         bool rangedPrimary = player.Progression.HeroClass is HeroClass.Aetherist or HeroClass.Necromancer
             || (player.Progression.HeroClass is HeroClass.Warden or HeroClass.Shadowstalker && targetDistance > 2.6f);
+        resolved.AttackForm = rangedPrimary ? AttackForm.Projectile : AttackForm.Melee;
         if (rangedPrimary)
         {
             Node? scene = GetTree().CurrentScene;
@@ -313,6 +314,13 @@ public partial class SkillCaster : Node
             Vector3 toEnemy = enemy.GlobalPosition - player.GlobalPosition;
             toEnemy.Y = 0f;
             if (toEnemy.Length() <= range && direction.Dot(toEnemy.Normalized()) > 0.12f) enemy.TakeDamage(resolved.Damage, resolved.Element, resolved);
+        }
+        foreach (Node node in GetTree().GetNodesInGroup("warden_pylons"))
+        {
+            if (node is not WardenPylon pylon || !IsInstanceValid(pylon)) continue;
+            Vector3 toPylon = pylon.GlobalPosition - player.GlobalPosition;
+            toPylon.Y = 0f;
+            if (toPylon.Length() <= range && direction.Dot(toPylon.Normalized()) > 0.12f) pylon.TakeDamage(resolved.Damage, resolved.Element, resolved);
         }
         Node? impactScene = GetTree().CurrentScene;
         if (impactScene != null) SkillVfx.SpawnMeleeHit(impactScene, player.GlobalPosition + direction * 1.5f + Vector3.Up * 0.7f);
@@ -378,6 +386,7 @@ public partial class SkillCaster : Node
                 enemy.TakeDamage(resolved.Damage, resolved.Element, resolved);
             }
         }
+        DamagePylonsInRadius(destination, 2.7f, resolved);
         GD.Print($"[Caster] Movement {skill.DisplayName} dash={direction.Length():0.0} linked={resolved.HasLightningInfusion}");
     }
 
@@ -420,6 +429,7 @@ public partial class SkillCaster : Node
                 }
             }
         }
+        DamagePylonsInRadius(target, radius, resolved);
 
         if (resolved.HasGroundFire)
         {
@@ -452,6 +462,17 @@ public partial class SkillCaster : Node
         SkillVfx.SpawnCastRing(scene, from, resolved.Element, 1f);
         SkillVfx.SpawnLinkLayers(scene, from, resolved);
         GD.Print($"[Caster] Projectile {skill.DisplayName} chain={resolved.ChainCount}");
+    }
+
+    private void DamagePylonsInRadius(Vector3 center, float radius, ResolvedCast resolved)
+    {
+        foreach (Node node in GetTree().GetNodesInGroup("warden_pylons"))
+        {
+            if (node is WardenPylon pylon && IsInstanceValid(pylon) && pylon.GlobalPosition.DistanceTo(center) <= radius)
+            {
+                pylon.TakeDamage(resolved.Damage, resolved.Element, resolved);
+            }
+        }
     }
 
     private static void SpawnExplosionVisual(Node scene, Vector3 pos, DamageElement element)

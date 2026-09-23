@@ -7,7 +7,7 @@ Unicode True
   !define OUTPUT_FILE "Sigilwoven-Setup-Windows-x86_64.exe"
 !endif
 !ifndef APP_VERSION
-  !define APP_VERSION "0.0.45"
+  !define APP_VERSION "0.0.46"
 !endif
 
 Name "Sigilwoven"

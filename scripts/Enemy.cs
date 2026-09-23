@@ -17,14 +17,16 @@ public enum EnemyArchetype
     Vampire,
 }
 
+[System.Flags]
 public enum EliteModifier
 {
-    None,
-    Frenzied,
-    Bulwark,
-    Stormbound,
-    Molten,
-    Warden,
+    None = 0,
+    Frenzied = 1 << 0,
+    Bulwark = 1 << 1,
+    Stormbound = 1 << 2,
+    Molten = 1 << 3,
+    Warden = 1 << 4,
+    Mirror = 1 << 5,
 }
 
 public partial class Enemy : CharacterBody3D
@@ -77,7 +79,10 @@ public partial class Enemy : CharacterBody3D
     private float _ritualWindup;
     private FallenRemnant? _ritualRemnant;
     private EnemyArchetype _archetype;
-    private EliteModifier _eliteModifier;
+    private EliteModifier _eliteModifiers;
+    private AttackForm _mirrorForm;
+    private float _mirrorReflectCooldown;
+    private int _activeWardenPylons;
     private Color _normalColor = Colors.White;
     private float _difficultyDamageMultiplier = 1f;
     private float _difficultyRarityBonus;
@@ -90,10 +95,10 @@ public partial class Enemy : CharacterBody3D
     private const float StatusTickInterval = 0.25f;
 
     public bool IsTrainingDummy => _isTrainingDummy;
-    public bool IsElite => _eliteModifier != EliteModifier.None;
+    public bool IsElite => _eliteModifiers != EliteModifier.None;
     public float Health => Mathf.Max(0f, _hp);
     public EnemyArchetype Archetype => _archetype;
-    public string DisplayTitle => IsElite ? $"ELITE {_eliteModifier.ToString().ToUpperInvariant()} {_archetype.ToString().ToUpperInvariant()}" : _archetype.ToString().ToUpperInvariant();
+    public string DisplayTitle => IsElite ? $"ELITE {BuildAffixSummary()} {_archetype.ToString().ToUpperInvariant()}" : _archetype.ToString().ToUpperInvariant();
     public event System.Action<Enemy>? Died;
     public event System.Action<Enemy>? Aggroed;
 
@@ -120,10 +125,13 @@ public partial class Enemy : CharacterBody3D
 
     public void ConfigureElite(EliteModifier modifier)
     {
-        _eliteModifier = modifier;
+        _eliteModifiers = modifier;
         if (modifier != EliteModifier.None)
         {
-            MaxHp *= modifier == EliteModifier.Bulwark ? 3.2f : 2.25f;
+            int affixCount = CountEliteModifiers(modifier);
+            MaxHp *= 2.15f + (affixCount - 1) * 0.42f;
+            if (HasEliteModifier(EliteModifier.Bulwark)) MaxHp *= 1.22f;
+            _mirrorForm = (AttackForm)GD.RandRange(0, 2);
         }
     }
 
@@ -137,7 +145,27 @@ public partial class Enemy : CharacterBody3D
 
     public static EliteModifier RollEliteModifier()
     {
-        return (EliteModifier)GD.RandRange(1, 5);
+        return RollEliteModifiers(1);
+    }
+
+    public static EliteModifier RollEliteModifiers(int count)
+    {
+        EliteModifier result = EliteModifier.None;
+        EliteModifier[] pool =
+        {
+            EliteModifier.Frenzied,
+            EliteModifier.Bulwark,
+            EliteModifier.Stormbound,
+            EliteModifier.Molten,
+            EliteModifier.Warden,
+            EliteModifier.Mirror,
+        };
+        count = Mathf.Clamp(count, 1, 4);
+        while (CountEliteModifiers(result) < count)
+        {
+            result |= pool[GD.RandRange(0, pool.Length - 1)];
+        }
+        return result;
     }
 
     public void JoinAmbush(Node3D target)
@@ -202,14 +230,7 @@ public partial class Enemy : CharacterBody3D
 
         _normalColor = _isTrainingDummy
             ? new Color(0.62f, 0.48f, 0.25f)
-            : IsElite ? _eliteModifier switch
-            {
-                EliteModifier.Frenzied => new Color(1f, 0.22f, 0.12f),
-                EliteModifier.Bulwark => new Color(0.82f, 0.68f, 0.16f),
-                EliteModifier.Molten => new Color(1f, 0.19f, 0.025f),
-                EliteModifier.Warden => new Color(0.12f, 0.95f, 0.58f),
-                _ => new Color(0.3f, 0.55f, 1f),
-            }
+            : IsElite ? GetPrimaryEliteColor()
             : _archetype switch
             {
                 EnemyArchetype.Brute => new Color(0.68f, 0.42f, 0.36f),
@@ -227,7 +248,7 @@ public partial class Enemy : CharacterBody3D
         _mat = new StandardMaterial3D
         {
             AlbedoColor = _normalColor,
-            AlbedoTexture = _isTrainingDummy ? null : GD.Load<Texture2D>("res://assets/textures/raider_armor.png"),
+            AlbedoTexture = _isTrainingDummy ? null : GD.Load<Texture2D>("res://assets/textures/aether-forged-metal-v1.png"),
             Roughness = 0.78f,
             Metallic = _isTrainingDummy ? 0f : 0.24f,
             EmissionEnabled = true,
@@ -395,6 +416,7 @@ public partial class Enemy : CharacterBody3D
         _hitFlash = Mathf.Max(0f, _hitFlash - step);
         _poiseRegenDelay = Mathf.Max(0f, _poiseRegenDelay - step);
         _shieldBlockCooldown = Mathf.Max(0f, _shieldBlockCooldown - step);
+        _mirrorReflectCooldown = Mathf.Max(0f, _mirrorReflectCooldown - step);
         _allyAlertCooldown = Mathf.Max(0f, _allyAlertCooldown - step);
         _leapCooldown = Mathf.Max(0f, _leapCooldown - step);
         _ritualCooldown = Mathf.Max(0f, _ritualCooldown - step);
@@ -421,7 +443,7 @@ public partial class Enemy : CharacterBody3D
             _ => 1.7f,
         };
         float woundedFrenzy = _archetype == EnemyArchetype.Berserker && _hp < MaxHp * 0.5f ? 1.48f : 1f;
-        return speed * woundedFrenzy * (_eliteModifier == EliteModifier.Frenzied ? 1.42f : 1f);
+        return speed * woundedFrenzy * (HasEliteModifier(EliteModifier.Frenzied) ? 1.42f : 1f);
     }
 
     private void AcquireTarget(Node3D target, string source)
@@ -572,22 +594,23 @@ public partial class Enemy : CharacterBody3D
 
     private bool TryBuildImportedEnemy()
     {
-        bool kenneyModel = _archetype is EnemyArchetype.Ghoul or EnemyArchetype.SkeletonArcher or EnemyArchetype.Vampire;
+        bool kenneyModel = _archetype == EnemyArchetype.SkeletonArcher;
         string file = _archetype switch
         {
             EnemyArchetype.Brute => "Viking_Male.fbx",
-            EnemyArchetype.Hexer => "Wizard.fbx",
+            EnemyArchetype.Hexer => "Witch.fbx",
             EnemyArchetype.Guardian => "Knight_Golden_Male.fbx",
-            EnemyArchetype.Berserker => "Viking_Male.fbx",
-            EnemyArchetype.Shieldbearer => "Knight_Golden_Male.fbx",
-            EnemyArchetype.Leaper => "Ninja_Male.fbx",
+            EnemyArchetype.Berserker => "Soldier_Male.fbx",
+            EnemyArchetype.Shieldbearer => "Knight_Male.fbx",
+            EnemyArchetype.Leaper => "Ninja_Sand.fbx",
             EnemyArchetype.Necromancer => "Wizard.fbx",
-            EnemyArchetype.Ghoul => "character-zombie.glb",
+            EnemyArchetype.Ghoul => "Zombie_Male.fbx",
             EnemyArchetype.SkeletonArcher => "character-skeleton.glb",
-            EnemyArchetype.Vampire => "character-vampire.glb",
-            _ => "Ninja_Male.fbx",
+            EnemyArchetype.Vampire => "Ninja_Female.fbx",
+            _ => "Pirate_Male.fbx",
         };
-        string directory = kenneyModel ? "kenney_graveyard" : "quaternius_enemies";
+        bool originalSubset = file is "Viking_Male.fbx" or "Knight_Golden_Male.fbx" or "Wizard.fbx";
+        string directory = kenneyModel ? "kenney_graveyard" : originalSubset ? "quaternius_enemies" : "quaternius_characters";
         PackedScene? scene = GD.Load<PackedScene>($"res://assets/models/{directory}/{file}");
         if (scene?.Instantiate() is not Node3D model)
         {
@@ -640,7 +663,7 @@ public partial class Enemy : CharacterBody3D
 
     private void UpdateRangedAttack(PlayerController target, float distance, float step)
     {
-        if (_rangedWindup > 0f || _meleeWindup > 0f || _leapWindup > 0f || _ritualWindup > 0f || ((_archetype is EnemyArchetype.Brute or EnemyArchetype.Leaper or EnemyArchetype.Ghoul) && _eliteModifier != EliteModifier.Stormbound) || distance < 3f || distance > 11f)
+        if (_rangedWindup > 0f || _meleeWindup > 0f || _leapWindup > 0f || _ritualWindup > 0f || ((_archetype is EnemyArchetype.Brute or EnemyArchetype.Leaper or EnemyArchetype.Ghoul) && !HasEliteModifier(EliteModifier.Stormbound)) || distance < 3f || distance > 11f)
         {
             return;
         }
@@ -649,18 +672,18 @@ public partial class Enemy : CharacterBody3D
         {
             return;
         }
-        _rangedCooldown = _eliteModifier == EliteModifier.Stormbound ? 0.85f + GD.Randf() * 0.2f : _archetype switch
+        _rangedCooldown = HasEliteModifier(EliteModifier.Stormbound) ? 0.85f + GD.Randf() * 0.2f : _archetype switch
         {
             EnemyArchetype.Hexer => 1.45f + GD.Randf() * 0.35f,
             EnemyArchetype.Guardian => 1.8f + GD.Randf() * 0.3f,
             _ => 2.4f + GD.Randf() * 0.8f,
         };
         _queuedRangedTarget = target;
-        _rangedWindup = _eliteModifier == EliteModifier.Stormbound ? 0.28f : 0.42f;
+        _rangedWindup = HasEliteModifier(EliteModifier.Stormbound) ? 0.28f : 0.42f;
         Node? scene = GetTree().CurrentScene;
         if (scene != null)
         {
-            DangerTelegraph.SpawnLine(scene, GlobalPosition, target.GlobalPosition, _eliteModifier == EliteModifier.Stormbound ? 0.32f : 0.22f, _rangedWindup);
+            DangerTelegraph.SpawnLine(scene, GlobalPosition, target.GlobalPosition, HasEliteModifier(EliteModifier.Stormbound) ? 0.32f : 0.22f, _rangedWindup);
         }
     }
 
@@ -675,7 +698,7 @@ public partial class Enemy : CharacterBody3D
         {
             return;
         }
-        _attackCooldown = (_archetype == EnemyArchetype.Brute ? 1.35f : _archetype == EnemyArchetype.Shieldbearer ? 1.55f : 1.05f) * (_eliteModifier == EliteModifier.Frenzied ? 0.62f : 1f);
+        _attackCooldown = (_archetype == EnemyArchetype.Brute ? 1.35f : _archetype == EnemyArchetype.Shieldbearer ? 1.55f : 1.05f) * (HasEliteModifier(EliteModifier.Frenzied) ? 0.62f : 1f);
         _attackAnimationLeft = AttackAnimationDuration;
         if (_modelAnimator != null)
         {
@@ -693,7 +716,7 @@ public partial class Enemy : CharacterBody3D
             EnemyArchetype.Necromancer => 9f,
             _ => 12f,
         };
-        if (IsElite) damage *= _eliteModifier == EliteModifier.Frenzied ? 1.5f : 1.3f;
+        if (IsElite) damage *= HasEliteModifier(EliteModifier.Frenzied) ? 1.5f : 1.3f;
         damage *= 1.25f * _difficultyDamageMultiplier;
         _queuedMeleeDamage = damage;
         _queuedMeleeTarget = target;
@@ -934,25 +957,49 @@ public partial class Enemy : CharacterBody3D
         AddChild(halo);
         var light = new OmniLight3D { LightColor = color, LightEnergy = 1.5f, OmniRange = 4.5f, Position = new Vector3(0f, 1.3f, 0f) };
         AddChild(light);
-        if (_eliteModifier == EliteModifier.Warden)
+        if (HasEliteModifier(EliteModifier.Warden))
         {
             for (int i = 0; i < 3; i++)
             {
                 float angle = Mathf.Tau * i / 3f;
-                var pylon = new MeshInstance3D
-                {
-                    Mesh = new PrismMesh { Size = new Vector3(0.22f, 0.7f, 0.22f) },
-                    Position = new Vector3(Mathf.Cos(angle) * 1.05f, 1.05f, Mathf.Sin(angle) * 1.05f),
-                };
-                pylon.SetSurfaceOverrideMaterial(0, material);
+                var pylon = new WardenPylon();
+                pylon.Configure(this, Mathf.Max(55f, MaxHp * 0.1f), i + 1);
                 AddChild(pylon);
+                pylon.Position = new Vector3(Mathf.Cos(angle) * 1.55f, 0.05f, Mathf.Sin(angle) * 1.55f);
+                _activeWardenPylons++;
             }
         }
-        else if (_eliteModifier == EliteModifier.Molten)
+        if (HasEliteModifier(EliteModifier.Molten))
         {
             var moltenRing = new MeshInstance3D { Mesh = new TorusMesh { InnerRadius = 1.05f, OuterRadius = 1.22f }, Position = new Vector3(0f, 0.08f, 0f) };
             moltenRing.SetSurfaceOverrideMaterial(0, material);
             AddChild(moltenRing);
+        }
+        if (HasEliteModifier(EliteModifier.Mirror))
+        {
+            var mirrorMaterial = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.55f, 0.22f, 0.95f, 0.72f),
+                AlbedoTexture = GD.Load<Texture2D>("res://assets/textures/aether-forged-metal-v1.png"),
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                Metallic = 0.9f,
+                Roughness = 0.12f,
+                EmissionEnabled = true,
+                Emission = new Color(0.42f, 0.08f, 1f),
+                EmissionEnergyMultiplier = 2.5f,
+            };
+            for (int i = 0; i < 3; i++)
+            {
+                float angle = Mathf.Tau * i / 3f;
+                var shard = new MeshInstance3D
+                {
+                    Mesh = new PrismMesh { Size = new Vector3(0.34f, 0.85f, 0.1f) },
+                    Position = new Vector3(Mathf.Cos(angle) * 1.15f, 1.45f, Mathf.Sin(angle) * 1.15f),
+                    Rotation = new Vector3(0.2f, -angle, 0.12f),
+                };
+                shard.SetSurfaceOverrideMaterial(0, mirrorMaterial);
+                AddChild(shard);
+            }
         }
     }
 
@@ -1099,6 +1146,18 @@ public partial class Enemy : CharacterBody3D
         }
         AggroOnHit();
         amount = Mathf.Max(0f, amount);
+        if (HasEliteModifier(EliteModifier.Mirror) && resolved != null && resolved.AttackForm == _mirrorForm)
+        {
+            float reflected = Mathf.Min(38f, amount * 0.18f);
+            amount *= 0.28f;
+            if (_mirrorReflectCooldown <= 0f && reflected > 0.5f && _encounterTarget is PlayerController mirrorTarget && IsInstanceValid(mirrorTarget))
+            {
+                _mirrorReflectCooldown = 0.45f;
+                mirrorTarget.TakeDamage(reflected, $"MIRROR {_mirrorForm.ToString().ToUpperInvariant()}", element, 0f);
+                Node? mirrorScene = GetTree().CurrentScene;
+                if (mirrorScene != null) SkillVfx.SpawnBeam(mirrorScene, GlobalPosition + Vector3.Up, mirrorTarget.GlobalPosition + Vector3.Up, DamageElement.Lightning, 0.16f);
+            }
+        }
         if (_archetype == EnemyArchetype.Shieldbearer && _shieldBlockCooldown <= 0f && IsPlayerInFront())
         {
             amount *= 0.22f;
@@ -1112,7 +1171,8 @@ public partial class Enemy : CharacterBody3D
             float effectiveResistance = Mathf.Clamp(GetElementResistance(element) - penetration, -25f, 75f);
             amount *= 1f - effectiveResistance / 100f;
         }
-        if (_eliteModifier == EliteModifier.Bulwark) amount *= 0.72f;
+        if (HasEliteModifier(EliteModifier.Bulwark)) amount *= 0.72f;
+        if (HasEliteModifier(EliteModifier.Warden) && HasActiveWardenPylons()) amount *= 0.72f;
         if (IsProtectedByWarden()) amount *= 0.64f;
         if (resolved != null && resolved.ExecuteThreshold > 0f && _hp <= MaxHp * resolved.ExecuteThreshold)
         {
@@ -1168,7 +1228,7 @@ public partial class Enemy : CharacterBody3D
             (EnemyArchetype.Guardian, _) => 18f,
             _ => 0f,
         };
-        return resistance + (_eliteModifier == EliteModifier.Bulwark ? 12f : 0f);
+        return resistance + (HasEliteModifier(EliteModifier.Bulwark) ? 12f : 0f);
     }
 
     private void TakeRawDamage(float amount, bool isBurn, Color? numberColor = null, bool isCritical = false)
@@ -1195,7 +1255,7 @@ public partial class Enemy : CharacterBody3D
         if (_hp <= 0f)
         {
             SpawnFallenRemnant();
-            if (_eliteModifier == EliteModifier.Molten) SpawnMoltenDeathHazard();
+            if (HasEliteModifier(EliteModifier.Molten)) SpawnMoltenDeathHazard();
             Died?.Invoke(this);
             AwardExperience();
             DropAether();
@@ -1287,7 +1347,7 @@ public partial class Enemy : CharacterBody3D
     {
         if (_healthLabel != null)
         {
-            string elite = IsElite ? $"ELITE {_eliteModifier.ToString().ToUpperInvariant()}  •  " : "";
+            string elite = IsElite ? $"ELITE {BuildAffixSummary()}  •  " : "";
             _healthLabel.Text = $"{elite}{_archetype.ToString().ToUpperInvariant()}  {Mathf.Max(0, Mathf.CeilToInt(_hp))} / {Mathf.CeilToInt(MaxHp)}";
             if (IsElite) _healthLabel.Modulate = _normalColor;
         }
@@ -1329,12 +1389,68 @@ public partial class Enemy : CharacterBody3D
 
     private bool IsProtectedByWarden()
     {
-        if (_eliteModifier == EliteModifier.Warden) return false;
+        if (HasEliteModifier(EliteModifier.Warden)) return false;
         foreach (Node node in GetTree().GetNodesInGroup("enemies"))
         {
-            if (node is Enemy enemy && enemy != this && IsInstanceValid(enemy) && enemy.Health > 0f && enemy._eliteModifier == EliteModifier.Warden && GlobalPosition.DistanceTo(enemy.GlobalPosition) <= 8f) return true;
+            if (node is Enemy enemy && enemy != this && IsInstanceValid(enemy) && enemy.Health > 0f && enemy.HasEliteModifier(EliteModifier.Warden) && enemy.HasActiveWardenPylons() && GlobalPosition.DistanceTo(enemy.GlobalPosition) <= 8f) return true;
         }
         return false;
+    }
+
+    public bool HasEliteModifier(EliteModifier modifier)
+    {
+        return (_eliteModifiers & modifier) == modifier;
+    }
+
+    public void NotifyWardenPylonDestroyed()
+    {
+        _activeWardenPylons = Mathf.Max(0, _activeWardenPylons - 1);
+        UpdateHealthLabel();
+        if (_activeWardenPylons == 0)
+        {
+            if (_encounterTarget is PlayerController player && IsInstanceValid(player)) player.ShowCombatMessage("WARDEN AURA SHATTERED");
+            Node? scene = GetTree().CurrentScene;
+            if (scene != null) SkillVfx.SpawnImpact(scene, GlobalPosition + Vector3.Up, DamageElement.Lightning, true);
+        }
+    }
+
+    private bool HasActiveWardenPylons()
+    {
+        return _activeWardenPylons > 0;
+    }
+
+    private string BuildAffixSummary()
+    {
+        var names = new System.Collections.Generic.List<string>();
+        if (HasEliteModifier(EliteModifier.Frenzied)) names.Add("FRENZIED");
+        if (HasEliteModifier(EliteModifier.Bulwark)) names.Add("BULWARK");
+        if (HasEliteModifier(EliteModifier.Stormbound)) names.Add("STORMBOUND");
+        if (HasEliteModifier(EliteModifier.Molten)) names.Add("MOLTEN");
+        if (HasEliteModifier(EliteModifier.Warden)) names.Add($"WARDEN {_activeWardenPylons}/3");
+        if (HasEliteModifier(EliteModifier.Mirror)) names.Add($"MIRROR:{_mirrorForm.ToString().ToUpperInvariant()}");
+        return string.Join(" + ", names);
+    }
+
+    private Color GetPrimaryEliteColor()
+    {
+        if (HasEliteModifier(EliteModifier.Mirror)) return new Color(0.62f, 0.28f, 1f);
+        if (HasEliteModifier(EliteModifier.Warden)) return new Color(0.12f, 0.95f, 0.58f);
+        if (HasEliteModifier(EliteModifier.Molten)) return new Color(1f, 0.19f, 0.025f);
+        if (HasEliteModifier(EliteModifier.Bulwark)) return new Color(0.82f, 0.68f, 0.16f);
+        if (HasEliteModifier(EliteModifier.Frenzied)) return new Color(1f, 0.22f, 0.12f);
+        return new Color(0.3f, 0.55f, 1f);
+    }
+
+    private static int CountEliteModifiers(EliteModifier modifiers)
+    {
+        int count = 0;
+        int value = (int)modifiers;
+        while (value != 0)
+        {
+            count += value & 1;
+            value >>= 1;
+        }
+        return count;
     }
 
     private void SpawnMoltenDeathHazard()
@@ -1396,7 +1512,7 @@ public partial class Enemy : CharacterBody3D
             EnemyArchetype.Guardian => 22f,
             _ => 9f,
         };
-        if (IsElite) damage *= _eliteModifier == EliteModifier.Stormbound ? 1.45f : 1.25f;
+        if (IsElite) damage *= HasEliteModifier(EliteModifier.Stormbound) ? 1.45f : 1.25f;
         damage *= 1.25f * _difficultyDamageMultiplier;
         bolt.Configure(target, damage);
         if (_modelAnimator != null)

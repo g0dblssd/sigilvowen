@@ -43,7 +43,7 @@ public partial class MainMenuUI : CanvasLayer
         var start = MenuButton("ENTER THE SHATTERED REALM", new Color(0.2f, 0.66f, 0.94f)); start.Pressed += StartGame; column.AddChild(start);
         var codex = MenuButton("CODEX  //  47 SKILLS • 7 CLASSES", new Color(0.42f, 0.42f, 0.48f)); codex.Disabled = true; column.AddChild(codex);
         var quit = MenuButton("LEAVE GAME", new Color(0.52f, 0.22f, 0.2f)); quit.Pressed += () => GetTree().Quit(); column.AddChild(quit);
-        column.AddChild(new Label { Text = "Patch 045  •  LOCAL DEVELOPMENT BUILD", Modulate = new Color(0.45f, 0.48f, 0.56f), HorizontalAlignment = HorizontalAlignment.Center });
+        column.AddChild(new Label { Text = "VERSION 0.0.46  •  SHATTERED REALM", Modulate = new Color(0.45f, 0.48f, 0.56f), HorizontalAlignment = HorizontalAlignment.Center });
 
         if (DisplayServer.GetName() == "headless") StartGame();
     }

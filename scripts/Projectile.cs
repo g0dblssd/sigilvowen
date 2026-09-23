@@ -102,12 +102,25 @@ public partial class Projectile : Area3D
 
     private void OnBodyEntered(Node3D body)
     {
-        if (_hit || body is not Enemy e || !IsInstanceValid(e) || e.IsQueuedForDeletion())
+        if (_hit || !IsInstanceValid(body) || body.IsQueuedForDeletion())
         {
             return;
         }
         _hit = true;
         var element = Resolved != null ? Resolved.Element : DamageElement.Fire;
+        if (body is WardenPylon pylon)
+        {
+            pylon.TakeDamage(Damage, element, Resolved);
+            Node? pylonScene = GetTree().CurrentScene;
+            if (Resolved != null && pylonScene != null) SkillVfx.SpawnProjectileImpact(pylonScene, SkillId, GlobalPosition, Resolved);
+            QueueFree();
+            return;
+        }
+        if (body is not Enemy e)
+        {
+            _hit = false;
+            return;
+        }
         e.TakeDamage(Damage, element, Resolved);
         Node? scene = GetTree().CurrentScene;
         if (Resolved != null && scene != null)
